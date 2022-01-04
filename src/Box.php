@@ -13,14 +13,10 @@ class Box
     protected $factories = array();
     protected $protected = array();
 
-    public function __construct(array $hive = null, array $rules = null)
+    public function __construct(array $data = null)
     {
-        if ($hive) {
-            $this->hive = $hive;
-        }
-
-        if ($rules) {
-            $this->rules = $rules;
+        if ($data) {
+            $this->allSet($data);
         }
     }
 
@@ -32,12 +28,12 @@ class Box
             $load = static fn() => require func_get_arg(0);
         }
 
-        Arr::walk($files, fn($file) => is_file($file) && is_array($config = require $file) && $this-($config));
+        Arr::walk($files, fn(Payload $file) => is_file($file->value) && is_array($config = $load($file->value)) && $this->allSet($config));
     }
 
     public function with(string $key, \Closure $cb = null)
     {
-        return $cb ? $cb(get($key)) : get($key);
+        return $cb ? $cb($this->get($key)) : $this->get($key);
     }
 
     public function has($key): bool
@@ -106,7 +102,7 @@ class Box
         return $this;
     }
 
-    public function push($key, ...$values): array
+    public function push($key, ...$values): static
     {
         $data = $this->get($key);
 
@@ -116,9 +112,7 @@ class Box
 
         array_push($data, ...$values);
 
-        $this->set($key, $data);
-
-        return $data;
+        return $this->set($key, $data);
     }
 
     public function pop($key)
@@ -138,7 +132,7 @@ class Box
         return $data;
     }
 
-    public function unshift($key, ...$values): array
+    public function unshift($key, ...$values): static
     {
         $data = $this->get($key);
 
@@ -148,9 +142,7 @@ class Box
 
         array_unshift($data, ...$values);
 
-        $this->set($key, $data);
-
-        return $data;
+        return $this->set($key, $data);
     }
 
     public function shift($key)
@@ -168,6 +160,15 @@ class Box
         $this->remove($key);
 
         return $data;
+    }
+
+    public function size($key): int
+    {
+        return match(gettype($val = $this->get($key))) {
+            'object', 'resource' => 0,
+            'array' => count($val),
+            default => strlen($val),
+        };
     }
 
     public function protect($key, callable $value): static
