@@ -6,7 +6,7 @@ use Ekok\Utils\Arr;
 use Ekok\Utils\Val;
 use Ekok\Utils\Payload;
 
-class Box
+class Box implements \ArrayAccess
 {
     protected $hive = array();
     protected $rules = array();
@@ -46,9 +46,19 @@ class Box
         );
     }
 
-    public function get($key)
+    public function &get($key)
     {
-        return $this->protected[$key] ?? Val::ref($key, $this->hive) ?? $this->make($key, false) ?? null;
+        if (isset($this->protected[$key])) {
+            return $this->protected[$key];
+        }
+
+        if (($val = &Val::ref($key, $this->hive, true, $exists)) || $exists) {
+            return $val;
+        }
+
+        $obj = $this->make($key, false);
+
+        return $obj;
     }
 
     public function set($key, $value): static
@@ -205,5 +215,49 @@ class Box
         $instance = &Val::ref($key, $this->hive, true);
 
         return $instance ?? ($instance = $rule());
+    }
+
+    public function __isset($name)
+    {
+        return $this->has($name);
+    }
+
+    public function &__get($name)
+    {
+        $val = &$this->get($name);
+
+        return $val;
+    }
+
+    public function __set($name, $value)
+    {
+        $this->set($name, $value);
+    }
+
+    public function __unset($name)
+    {
+        $this->remove($name);
+    }
+
+    public function offsetExists(mixed $offset): bool
+    {
+        return $this->has($offset);
+    }
+
+    public function offsetGet(mixed $offset): mixed
+    {
+        $val = &$this->get($offset);
+
+        return $val;
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        $this->set($offset, $value);
+    }
+
+    public function offsetUnset(mixed $offset): void
+    {
+        $this->remove($offset);
     }
 }

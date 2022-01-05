@@ -84,13 +84,6 @@ class BoxTest extends TestCase
 
     public function testMassive()
     {
-        $expected = array(
-            'numbers_0' => 0,
-            'numbers_1' => 1,
-            'numbers_2' => 2,
-            'numbers_3' => 3,
-        );
-
         $this->box->allSet(array(0, 1, 2, 3), 'numbers_');
 
         $this->assertTrue($this->box->some('numbers_none', 'numbers_0', 'numbers_1'));
@@ -108,5 +101,54 @@ class BoxTest extends TestCase
             'three' => 'numbers_3',
         )));
         $this->assertFalse($this->box->allRemove('numbers_0', 'numbers_1', 'numbers_2', 'numbers_3')->some('numbers_0'));
+    }
+
+    public function testPropertyAccess()
+    {
+        $this->assertSame('baz', $this->box->{'foo.bar'});
+        $this->assertTrue(isset($this->box->{'foo.bar'}));
+
+        $this->box->add_prop = array(1, 2, 3);
+
+        $this->assertSame(2, $this->box->{'add_prop.1'});
+
+        unset($this->box->{'add_prop.1'});
+
+        $this->assertEquals(array(1, 2 => 3), $this->box->add_prop);
+
+        $obj = $this->box->my_obj;
+
+        $this->assertInstanceOf('stdClass', $obj);
+        $this->assertSame($obj, $this->box->my_obj);
+
+        $obj->foo = 'bar';
+
+        $this->assertSame('bar', $this->box->my_obj->foo);
+    }
+
+    public function testArrayAccess()
+    {
+        $this->assertArrayHasKey('foo', $this->box);
+        $this->assertArrayHasKey('foo.bar', $this->box);
+        $this->assertSame('baz', $this->box['foo.bar']);
+        $this->assertTrue(isset($this->box['foo.bar']));
+
+        $this->box['add_array'] = array(1, 2, 3);
+
+        $this->assertSame(2, $this->box['add_array.1']);
+
+        unset($this->box['add_array.1']);
+
+        $this->assertEquals(array(1, 2 => 3), $this->box['add_array']);
+
+        /** @var \stdClass */
+        $obj = $this->box['my_obj'];
+
+        $this->assertInstanceOf('stdClass', $obj);
+        $this->assertSame($obj, $this->box['my_obj']);
+
+        $obj->foo = 'bar';
+
+        $this->assertSame('bar', $this->box['my_obj']->foo);
     }
 }
