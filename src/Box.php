@@ -30,7 +30,7 @@ class Box implements \ArrayAccess
 
     public function with(string $key, \Closure $cb = null)
     {
-        return $cb ? $cb($this->get($key)) : $this->get($key);
+        return $cb ? $cb($this->get($key), $this) : $this->get($key);
     }
 
     public function has($key): bool
