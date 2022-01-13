@@ -74,9 +74,9 @@ class BoxTest extends TestCase
         $this->box->make('unknown');
     }
 
-    public function testConfig()
+    public function testLoad()
     {
-        $this->box->config(TEST_FIXTURES . '/configs/one.php', TEST_FIXTURES . '/configs/two.php');
+        $this->box->load(TEST_FIXTURES . '/configs/one.php', TEST_FIXTURES . '/configs/two.php');
 
         $this->assertSame('foo', $this->box->get('one'));
         $this->assertSame(array(1, 2, 3), $this->box->get('two'));

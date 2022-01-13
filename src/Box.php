@@ -3,6 +3,7 @@
 namespace Ekok\Container;
 
 use Ekok\Utils\Arr;
+use Ekok\Utils\File;
 use Ekok\Utils\Val;
 use Ekok\Utils\Payload;
 
@@ -20,15 +21,11 @@ class Box implements \ArrayAccess
         }
     }
 
-    public function config(string ...$files): void
+    public function load(string ...$files): static
     {
-        static $load;
+        array_walk($files, fn(string $file) => $this->allSet(File::load($file) ?? array()));
 
-        if (!$load) {
-            $load = static fn() => require func_get_arg(0);
-        }
-
-        Arr::walk($files, fn(Payload $file) => is_file($file->value) && is_array($config = $load($file->value)) && $this->allSet($config));
+        return $this;
     }
 
     public function with(string $key, \Closure $cb = null)

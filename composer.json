@@ -2,23 +2,23 @@
     "name": "ekok/php-container",
     "description": "PHP Container",
     "type": "library",
-    "require": {
-        "php": ">=8.0",
-        "ekok/php-utils": "dev-master"
-    },
     "license": "MIT",
-    "autoload": {
-        "psr-4": {
-            "Ekok\\Container\\": "src/"
-        }
-    },
+    "minimum-stability": "stable",
     "authors": [
         {
             "name": "Eko Kurniawan",
             "email": "setiawanegho@gmail.com"
         }
     ],
-    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Ekok\\Container\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=8.0",
+        "ekok/php-utils": "dev-master"
+    },
     "require-dev": {
         "phpunit/phpunit": "^9.5"
     }
