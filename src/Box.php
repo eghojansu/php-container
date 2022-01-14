@@ -206,12 +206,12 @@ class Box implements \ArrayAccess
         }
 
         if (isset($this->factories[$key])) {
-            return $rule();
+            return $rule($this);
         }
 
         $instance = &Val::ref($key, $this->hive, true);
 
-        return $instance ?? ($instance = $rule());
+        return $instance ?? ($instance = $rule($this));
     }
 
     public function __isset($name)

@@ -15,7 +15,7 @@ class BoxTest extends TestCase
         $this->box = new Box(
             array(
                 'foo' => array('bar' => 'baz'),
-                'my_obj' => fn() => new \stdClass(),
+                'my_obj' => fn(Box $box) => $box === $this->box ? new \stdClass() : null,
             ),
         );
     }
