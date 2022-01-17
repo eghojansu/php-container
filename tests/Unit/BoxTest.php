@@ -28,8 +28,8 @@ class BoxTest extends TestCase
         $this->assertSame(1, $this->box->set('one', 1)->get('one'));
         $this->assertFalse($this->box->remove('one')->has('one'));
         $this->assertNull($this->box->get('one'));
-        $this->assertSame('barbaz', $this->box->with('foo.bar', fn($baz) => 'bar' . $baz, false));
-        $this->assertSame($this->box, $this->box->with('any', fn() => null));
+        $this->assertSame('barbaz', $this->box->with(fn($baz) => 'bar' . $baz, 'foo.bar', false));
+        $this->assertSame($this->box, $this->box->with(fn() => null));
 
         $obj = $this->box->get('my_obj');
 
