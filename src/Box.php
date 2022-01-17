@@ -28,9 +28,11 @@ class Box implements \ArrayAccess
         return $this;
     }
 
-    public function with(string $key, \Closure $cb = null)
+    public function with(string $key, \Closure $cb, bool $flow = true)
     {
-        return $cb ? $cb($this->get($key), $this) : $this->get($key);
+        $result = $cb($this->get($key), $this);
+
+        return $flow ? $this : $result;
     }
 
     public function has($key): bool
