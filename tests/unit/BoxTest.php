@@ -1,26 +1,26 @@
 <?php
 
-namespace Ekok\Container\Tests;
-
 use Ekok\Container\Box;
-use PHPUnit\Framework\TestCase;
 
-class BoxTest extends TestCase
+class BoxTest extends \Codeception\Test\Unit
 {
+    /** @var UnitTester */
+    protected $tester;
+
     /** @var Box */
     private $box;
 
-    protected function setUp(): void
+    protected function _before()
     {
         $this->box = new Box(
             array(
                 'foo' => array('bar' => 'baz'),
-                'my_obj' => fn(Box $box) => $box === $this->box ? new \stdClass() : null,
+                'my_obj' => fn (Box $box) => $box === $this->box ? new \stdClass() : null,
             ),
         );
     }
 
-    public function testBox()
+    public function testBoxFunctionality()
     {
         $this->assertTrue($this->box->has('foo.bar'));
         $this->assertSame('baz', $this->box->get('foo.bar'));
@@ -28,8 +28,8 @@ class BoxTest extends TestCase
         $this->assertSame(1, $this->box->set('one', 1)->get('one'));
         $this->assertFalse($this->box->remove('one')->has('one'));
         $this->assertNull($this->box->get('one'));
-        $this->assertSame('barbaz', $this->box->with(fn($baz) => 'bar' . $baz, 'foo.bar', false));
-        $this->assertSame($this->box, $this->box->with(fn() => null));
+        $this->assertSame('barbaz', $this->box->with(fn ($baz) => 'bar' . $baz, 'foo.bar', false));
+        $this->assertSame($this->box, $this->box->with(fn () => null));
 
         $obj = $this->box->get('my_obj');
 
@@ -61,10 +61,10 @@ class BoxTest extends TestCase
         $this->assertSame('remove', $this->box->set('to_be', 'remove')->shift('to_be'));
         $this->assertFalse($this->box->has('to_be'));
 
-        $fn = fn() => true;
+        $fn = fn () => true;
 
         $this->assertSame($fn, $this->box->protect('fn', $fn)->get('fn'));
-        $this->assertInstanceOf('stdClass', $std = $this->box->factory('std', fn() => new \stdClass())->get('std'));
+        $this->assertInstanceOf('stdClass', $std = $this->box->factory('std', fn () => new \stdClass())->get('std'));
         $this->assertNotSame($std, $this->box->get('std'));
     }
 
@@ -77,7 +77,7 @@ class BoxTest extends TestCase
 
     public function testLoad()
     {
-        $this->box->load(TEST_FIXTURES . '/configs/one.php', TEST_FIXTURES . '/configs/two.php');
+        $this->box->load(TEST_DATA . '/configs/one.php', TEST_DATA . '/configs/two.php');
 
         $this->assertSame('foo', $this->box->get('one'));
         $this->assertSame(array(1, 2, 3), $this->box->get('two'));
@@ -147,9 +147,5 @@ class BoxTest extends TestCase
 
         $this->assertInstanceOf('stdClass', $obj);
         $this->assertSame($obj, $this->box['my_obj']);
-
-        $obj->foo = 'bar';
-
-        $this->assertSame('bar', $this->box['my_obj']->foo);
     }
 }
