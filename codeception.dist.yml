@@ -1,5 +1,5 @@
 actor_suffix: Tester
-bootstrap: scripts/bootstrap.php
+bootstrap: _scripts/bootstrap.php
 coverage:
     enabled: true
     include:
