@@ -23,7 +23,12 @@ class Box implements \ArrayAccess
 
     public function load(string ...$files): static
     {
-        array_walk($files, fn(string $file) => $this->allSet(File::load($file) ?? array()));
+        return $this->loadInto(null, ...$files);
+    }
+
+    public function loadInto(string|null $key, string ...$files): static
+    {
+        array_walk($files, fn(string $file) => $this->allSet(File::load($file) ?? array(), $key));
 
         return $this;
     }
