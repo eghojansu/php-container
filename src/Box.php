@@ -9,13 +9,12 @@ use Ekok\Utils\Payload;
 
 class Box implements \ArrayAccess
 {
-    protected $hive = array();
-    protected $rules = array();
-    protected $factories = array();
-    protected $protected = array();
+    protected $h;
 
     public function __construct(array $data = null)
     {
+        $this->h = new Hive();
+
         if ($data) {
             $this->allSet($data);
         }
@@ -43,20 +42,20 @@ class Box implements \ArrayAccess
     public function has($key): bool
     {
         return (
-            Val::ref($key, $this->hive, false, $exists)
+            Val::ref($key, $this->h->data, false, $exists)
             || $exists
-            || isset($this->rules[$key])
-            || isset($this->protected[$key])
+            || isset($this->h->rules[$key])
+            || isset($this->h->protected[$key])
         );
     }
 
     public function &get($key)
     {
-        if (isset($this->protected[$key])) {
-            return $this->protected[$key];
+        if (isset($this->h->protected[$key])) {
+            return $this->h->protected[$key];
         }
 
-        if (($val = &Val::ref($key, $this->hive, true, $exists)) || $exists) {
+        if (($val = &Val::ref($key, $this->h->data, true, $exists)) || $exists) {
             return $val;
         }
 
@@ -70,9 +69,9 @@ class Box implements \ArrayAccess
         if ($value instanceof \Closure || (is_array($value) && \is_callable($value))) {
             $this->remove($key);
 
-            $this->rules[$key] = $value;
+            $this->h->rules[$key] = $value;
         } else {
-            $var = &Val::ref($key, $this->hive, true);
+            $var = &Val::ref($key, $this->h->data, true);
             $var = $value;
         }
 
@@ -81,8 +80,8 @@ class Box implements \ArrayAccess
 
     public function remove($key): static
     {
-        unset($this->rules[$key], $this->protected[$key], $this->factories[$key]);
-        Val::unref($key, $this->hive);
+        unset($this->h->rules[$key], $this->h->protected[$key], $this->h->factories[$key]);
+        Val::unref($key, $this->h->data);
 
         return $this;
     }
@@ -187,22 +186,22 @@ class Box implements \ArrayAccess
 
     public function protect($key, callable $value): static
     {
-        $this->protected[$key] = $value;
+        $this->h->protected[$key] = $value;
 
         return $this;
     }
 
     public function factory($key, callable $value): static
     {
-        $this->rules[$key] = $value;
-        $this->factories[$key] = true;
+        $this->h->rules[$key] = $value;
+        $this->h->factories[$key] = true;
 
         return $this;
     }
 
     public function make($key, bool $throw = true)
     {
-        $rule = $this->rules[$key] ?? null;
+        $rule = $this->h->rules[$key] ?? null;
 
         if (!$rule) {
             if ($throw) {
@@ -212,11 +211,11 @@ class Box implements \ArrayAccess
             return null;
         }
 
-        if (isset($this->factories[$key])) {
+        if (isset($this->h->factories[$key])) {
             return $rule($this);
         }
 
-        $instance = &Val::ref($key, $this->hive, true);
+        $instance = &Val::ref($key, $this->h->data, true);
 
         return $instance ?? ($instance = $rule($this));
     }
@@ -248,7 +247,7 @@ class Box implements \ArrayAccess
         return $this->has($offset);
     }
 
-    public function offsetGet(mixed $offset): mixed
+    public function &offsetGet(mixed $offset): mixed
     {
         $val = &$this->get($offset);
 
