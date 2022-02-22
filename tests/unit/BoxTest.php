@@ -24,7 +24,7 @@ class BoxTest extends \Codeception\Test\Unit
     {
         $this->assertTrue($this->box->has('foo.bar'));
         $this->assertSame('baz', $this->box->get('foo.bar'));
-        $this->assertSame(3, $this->box->size('foo.bar'));
+        $this->assertSame(3, $this->box->sizeOf('foo.bar'));
         $this->assertSame(1, $this->box->set('one', 1)->get('one'));
         $this->assertFalse($this->box->remove('one')->has('one'));
         $this->assertNull($this->box->get('one'));
@@ -38,7 +38,7 @@ class BoxTest extends \Codeception\Test\Unit
         $obj->foo = 'bar';
 
         $this->assertSame($obj, $this->box->get('my_obj'));
-        $this->assertSame(0, $this->box->size('my_obj'));
+        $this->assertSame(0, $this->box->sizeOf('my_obj'));
         $this->assertSame('bar', $this->box->get('my_obj.foo'));
         $this->assertFalse($this->box->remove('my_obj.foo')->has('my_obj.foo'));
         $this->assertNull($this->box->get('my_obj.foo'));
@@ -46,13 +46,13 @@ class BoxTest extends \Codeception\Test\Unit
         $this->assertSame(array(1, 2, 3), $this->box->push('push', 1, 2, 3)->get('push'));
         $this->assertSame(array(1, 2, 3, 4, 5), $this->box->push('push', 4, 5)->get('push'));
         $this->assertSame(5, $this->box->pop('push'));
-        $this->assertSame(4, $this->box->size('push'));
+        $this->assertSame(4, $this->box->sizeOf('push'));
         $this->assertSame(array(1, 2, 3, 4), $this->box->get('push'));
 
         $this->assertSame(array(-1, 0), $this->box->unshift('unshift', -1, 0)->get('unshift'));
         $this->assertSame(array(-3, -2, -1, 0), $this->box->unshift('unshift', -3, -2)->get('unshift'));
         $this->assertSame(-3, $this->box->shift('unshift'));
-        $this->assertSame(3, $this->box->size('unshift'));
+        $this->assertSame(3, $this->box->sizeOf('unshift'));
         $this->assertSame(array(-2, -1, 0), $this->box->get('unshift'));
 
         $this->assertSame('remove', $this->box->set('to_be', 'remove')->pop('to_be'));

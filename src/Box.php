@@ -84,6 +84,15 @@ class Box implements \ArrayAccess
         return $this;
     }
 
+    public function sizeOf($key): int
+    {
+        return match(gettype($val = $this->get($key))) {
+            'object', 'resource' => is_countable($val) ? count($val) : 0,
+            'array' => count($val),
+            default => strlen($val),
+        };
+    }
+
     public function some(...$keys): bool
     {
         return Arr::some($keys, fn ($key) => $this->has($key));
@@ -175,15 +184,6 @@ class Box implements \ArrayAccess
         $this->remove($key);
 
         return $data;
-    }
-
-    public function size($key): int
-    {
-        return match(gettype($val = $this->get($key))) {
-            'object', 'resource' => 0,
-            'array' => count($val),
-            default => strlen($val),
-        };
     }
 
     public function protect($key, callable $value): static
