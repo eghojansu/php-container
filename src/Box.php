@@ -10,17 +10,17 @@ class Box implements \ArrayAccess
 {
     protected $data = array();
     protected $rules = array();
-    protected $maps = array();
     protected $cache = array();
-    protected $protected = array();
+    protected $instances = array();
     protected $defaults = array(
         'inherit' => true,
-        'shared' => true,
+        'shared' => false,
     );
 
-    public function __construct(array $data = null)
+    public function __construct(array $data = null, array $rules = null)
     {
         $this->allSet($data ?? array());
+        $this->ruleAll($rules ?? array());
     }
 
     public function load(string ...$files): static
@@ -35,66 +35,42 @@ class Box implements \ArrayAccess
         return $this;
     }
 
-    public function with(\Closure $cb, string $key = null, bool $flow = true)
+    public function loadRules(string ...$files): static
+    {
+        array_walk($files, fn(string $file) => $this->ruleAll(File::load($file) ?? array()));
+
+        return $this;
+    }
+
+    public function with(\Closure $cb, string $key = null, bool $chain = true)
     {
         $result = $cb($key ? $this->get($key) : $this, $this);
 
-        return $flow ? $this : $result;
+        return $chain ? $this : $result;
     }
 
     public function has($key): bool
     {
-        return (
-            Val::ref($key, $this->data, false, $exists)
-            || $exists
-            || isset($this->protected[$key])
-            || isset($this->rules[$key])
-            || isset($this->maps[$this->ruleName($key)])
-        );
+        return Val::ref($key, $this->data, false, $exists) || $exists;
     }
 
     public function &get($key)
     {
-        if (isset($this->protected[$key])) {
-            return $this->protected[$key];
-        }
+        $val = &Val::ref($key, $this->data, true);
 
-        if (($val = &Val::ref($key, $this->data, true, $exists)) || $exists) {
-            return $val;
-        }
-
-        $obj = $this->make($key, null, null, false);
-
-        return $obj;
+        return $val;
     }
 
     public function set($key, $value): static
     {
-        if ($this->ruleCheck($key, $value, $set, $rule)) {
-            $this->remove($key);
-
-            $this->rules[$key] = $rule;
-            $this->maps[$set] = $key;
-        } else {
-            $var = &Val::ref($key, $this->data, true);
-            $var = $value;
-        }
+        $var = &Val::ref($key, $this->data, true);
+        $var = $value;
 
         return $this;
     }
 
     public function remove($key): static
     {
-        $set = $this->ruleName($key);
-        $map = $this->maps[$set] ?? null;
-
-        unset(
-            $this->protected[$key],
-            $this->rules[$key],
-            $this->rules[$map],
-            $this->cache[$map],
-            $this->maps[$set],
-        );
         Val::unref($key, $this->data);
 
         return $this;
@@ -202,28 +178,26 @@ class Box implements \ArrayAccess
         return $data;
     }
 
-    public function protect($key, callable $value): static
+    public function call(callable|string $cb, ...$args)
     {
-        $this->protected[$key] = $value;
-
-        return $this;
+        return $this->callArguments($cb, $args);
     }
 
-    public function make($key, array $args = null, array $share = null, bool $throw = true)
+    public function make(string $key, array $args = null, array $share = null)
     {
-        $rule = $this->ruleGet($key);
-
-        if (!$rule) {
-            if ($throw) {
-                throw new \LogicException(sprintf('No rule defined for: "%s"', $key));
-            }
-
-            return null;
+        if (__CLASS__ === $key || '_box_' === $key) {
+            return $this;
         }
 
-        $make = $this->cache[$rule['set']] ?? ($this->cache[$rule['set']] = $this->ruleMake($rule));
+        return $this->instances[$key] ?? (function () use ($key, $args, $share) {
+            $rule = $this->ruleGet($key);
 
-        return $make($args ?? array(), $share ?? array());
+            return $this->instances[$rule['set']] ?? (function () use ($key, $args, $share, $rule) {
+                $make = $this->cache[$key] ?? $this->cache[$rule['set']] ?? ($this->cache[$rule['set']] = $this->ruleMake($key, $rule));
+
+                return $make($args, $share);
+            })();
+        })();
     }
 
     public function ruleDefaults(array $defaults): static
@@ -238,96 +212,95 @@ class Box implements \ArrayAccess
         return ltrim(strtolower($name), '\\');
     }
 
-    public function ruleCheck($name, $value, string &$set = null, array &$rule = null): bool
-    {
-        if (!is_callable($rule) && !(is_array($value) && isset($value['class']))) {
-            $set = null;
-            $rule = null;
-
-            return false;
-        }
-
-        $rule = is_callable($value) ? array('create' => $value) : $value;
-
-        if (isset($rule['class']) && ($rule['inherit'] ?? $this->defaults['inherit'])) {
-            $rule = array_replace_recursive($this->ruleGet($rule['class']), $rule);
-        }
-
-        $set = $this->ruleName($name);
-        $rule = array_replace_recursive($this->ruleGet($name), $rule, compact('name', 'set'));
-
-        return true;
-    }
-
     public function ruleGet(string $class): array
     {
-        return $this->rules[$class] ?? $this->rules[$this->maps[$this->ruleName($class)]] ?? Arr::first(
-            $this->rules,
-            fn ($rule, $key) => (
-                '*' !== $key
-                && is_array($rule)
-                && empty($rule['class'])
-                && is_subclass_of($class, $key)
-                && ($rule['inherit'] ?? $this->defaults['inherit'])
-            ),
-        ) ?? $this->rules['*'] ?? array();
+        $set = $this->ruleName($class);
+
+        return array('name' => $class, 'set' => $set) + (
+            $this->rules[$class] ?? $this->rules[$set] ?? Arr::first(
+                $this->rules,
+                fn ($rule, $key) => (
+                    '*' !== $key
+                    && is_array($rule)
+                    && empty($rule['class'])
+                    && is_subclass_of($class, $key)
+                    && $rule['inherit']
+                ) ? $rule : null,
+            ) ?? $this->rules['*'] ?? array()
+        ) + $this->defaults;
     }
 
-    public function ruleParams(\ReflectionFunctionAbstract $method, array $rule): \Closure
+    public function ruleAdd(string $name, array|callable|string $rule = null): static
     {
-        $params = Arr::each(
-            $method->getParameters(),
-            static function (\ReflectionParameter $param) use ($rule) {
-                $paramType = $param->getType();
-                list($class, $type) = $paramType instanceof \ReflectionNamedType ? (
-                    $paramType->isBuiltin() ? array(null, $paramType->getName()) : array($paramType->getName(), null)
-                ) : array(null, null);
+        $set = $this->ruleName($name);
 
-                return array(
-                    $param,
-                    $class,
-                    $type,
-                    isset($rule['substitutions'][$class]),
-                );
-            },
-            true,
-            true,
-        );
+        if (is_callable($rule)) {
+            $new = array('create' => $rule);
+        } elseif (is_string($rule)) {
+            $new = array('class' => $rule);
+        } else {
+            $new = $rule ?? array();
+        }
 
-        return function (array $args, array $share) use ($params, $rule) {
-            $argsA = isset($rule['params']) ? array_merge($args, $this->ruleExpand($rule['params'] ?? array(), $share)) : $args;
-            $argsB = $share;
+        $new += compact('name', 'set');
 
-            return Arr::reduce($params, function(array $params, array $info) use ($rule, &$argsA, &$argsB) {
-                /** @var \ReflectionParameter */
-                $param = $info[0];
-                $class = $info[1];
-                $type = $info[2];
-                $sub = $info[3];
+        if (isset($new['class']) && ($new['inherit'] ?? $this->defaults['inherit'])) {
+            $new = array_replace_recursive($this->ruleGet($new['class']), $new);
+        }
 
-                if ($argsA && $this->ruleMatchParam($param, $class, $argsA, $value)) {
+        $this->rules[$set] = array_replace_recursive($this->ruleGet($name), $new);
+
+        return $this;
+    }
+
+    public function ruleInject($instance, string $key = null): static
+    {
+        $this->instances[strtolower($key ?? get_class($instance))] = $instance;
+
+        return $this;
+    }
+
+    public function ruleAll(array $rules): static
+    {
+        array_walk($rules, fn ($rule, $name) => $this->ruleAdd($name, $rule));
+
+        return $this;
+    }
+
+    public function ruleParams(\ReflectionFunctionAbstract $method, array $rule = null): \Closure
+    {
+        return function (array $args = null, array $share = null) use ($method, $rule) {
+            $useArgs = array_merge($args ?? array(), $this->ruleExpand($rule['params'] ?? array(), $share));
+            $useShare = $share ?? array();
+
+            return Arr::reduce($method->getParameters(), function(array $params, \ReflectionParameter $param) use ($rule, &$useArgs, &$useShare) {
+                $type = $param->getType();
+                $class = $type instanceof \ReflectionNamedType && !$type->isBuiltin() ? $type->getName() : null;
+                $sub = isset($rule['substitutions'][$class]);
+
+                if ($useArgs && $this->ruleMatchParam($param, $class, $useArgs, $value)) {
                     $params[] = $value;
-                } elseif ($argsB && $this->ruleMatchParam($param, $class, $argsB, $value)) {
+                } elseif ($useShare && $this->ruleMatchParam($param, $class, $useShare, $value)) {
                     $params[] = $value;
                 } elseif ($class) {
                     try {
                         $params[] = $sub ?
-                            $this->ruleExpand($rule['subtitutions'][$class], $argsB, true) :
-                            ($param->allowsNull() ? null : $this->make($class, null, $argsB));
+                            $this->ruleExpand($rule['substitutions'][$class], $useShare, true) :
+                            ($param->allowsNull() ? null : $this->make($class, null, $useShare));
                     } catch (\InvalidArgumentException $e) {}
-                } elseif ($argsA && $type) {
-                    $check = 'is_' . $type;
+                } elseif ($param->isVariadic()) {
+                    $params = array_merge($params, array_splice($useArgs, 0));
+                } elseif ($useArgs && $type?->getName()) {
+                    $check = 'is_' . $type->getName();
 
-                    for ($i = 0, $j = count($argsB); $i < $j; $i++) {
-                        if ($check($argsA[$i])) {
-                            $params[] = array_splice($argsA, $i, 1)[0];
+                    for ($i = 0, $j = count($useArgs); $i < $j; $i++) {
+                        if ($check($useArgs[$i])) {
+                            $params[] = array_splice($useArgs, $i, 1)[0];
                             break;
                         }
                     }
-                } elseif ($argsA) {
-                    $params[] = $this->ruleExpand(array_shift($argsA));
-                } elseif ($param->isVariadic()) {
-                    $params = array_merge($param, $argsA);
+                } elseif ($useArgs) {
+                    $params[] = $this->ruleExpand(array_shift($useArgs));
                 } else {
                     $params[] = $param->isDefaultValueAvailable() ? $param->getDefaultValue() : null;
                 }
@@ -337,57 +310,83 @@ class Box implements \ArrayAccess
         };
     }
 
+    public function callArguments(callable|string $cb, array $args = null, array $share = null)
+    {
+        $call = is_callable($cb) ? $cb : $this->callExpression($cb);
+        $params = $this->ruleParams(
+            is_array($call) ?
+                new \ReflectionMethod($call[0], $call[1]) :
+                new \ReflectionFunction($call)
+        );
+
+        return $call(...$params($args, $share));
+    }
+
+    public function callExpression(string $cb): array
+    {
+        $pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found;
+
+        if (false === $pos) {
+            throw new \LogicException(sprintf('Invalid call expression: %s', $cb));
+        }
+
+        $make = '@' === $cb[$pos];
+        $class = substr($cb, 0, $pos);
+        $method = substr($cb, $pos + 1);
+
+        return array($make ? $this->make($class) : $class, ltrim($method, '@:'));
+    }
+
     protected function ruleExpand($param, array $share = null, bool $createFromString = false)
     {
-        if (is_string($param)) {
-            return match(true) {
-                '__box__' === $param => $this,
-                $createFromString => $this->make($param),
-                default => Val::cast($param),
-            };
-        }
-
-        if (is_array($param)) {
-
-        }
-
-        return $param;
+        return match(gettype($param)) {
+            'array' => array_map(fn($param) => $this->ruleExpand($param, $share), $param),
+            'object' => is_callable($param) ? $this->callArguments($param, null, $share) : $param,
+            'string' => $createFromString ? $this->make($param) : Val::cast($param),
+            default => $param,
+        };
     }
 
     protected function ruleMatchParam(\ReflectionParameter $param, string|null $class, array &$search = null, &$found = null): bool
     {
         $found = null;
 
-        if (!$class) {
-            return false;
-        }
+        if ($class) {
+            foreach ($search ?? array() as $key => $value) {
+                if ($value instanceof $class || (null === $value && $param->allowsNull())) {
+                    $found = array_splice($search, $key, 1)[0];
 
-        foreach ($search ?? array() as $key => $value) {
-            if ($value instanceof $class || (null === $value && $param->allowsNull())) {
-                $found = array_splice($search, $key, 1)[0];
-
-                return true;
+                    return true;
+                }
             }
         }
 
         return false;
     }
 
-    protected function ruleMakeCallback(callable $creator, array $rule): \Closure
+    protected function ruleMakeCallback(\ReflectionFunction $fun, array $rule): \Closure
     {
-        $fun = new \ReflectionFunction($creator);
         $params = $this->ruleParams($fun, $rule);
+        $closure =  fn(array $args = null, array $share = null) => $fun->invokeArgs($params($args, $share));
 
-        return static fn(array $args, array $share) => $fun->invokeArgs($params($args, $share));
-    }
+        if ($rule['shared']) {
+            $closure = function(array $args = null, array $share = null) use ($closure, $rule) {
+                $this->ruleInject($instance = $closure($args, $share), $rule['name']);
 
-    protected function ruleMake(array $rule): \Closure
-    {
-        if (isset($rule['create'])) {
-            return $this->ruleMakeCallback($rule['create'], $rule);
+                return $instance;
+            };
         }
 
-        $class = new \ReflectionClass($rule['class'] ?? $rule['name']);
+        return $closure;
+    }
+
+    protected function ruleMake(string $name, array $rule): \Closure
+    {
+        if (isset($rule['create'])) {
+            return $this->ruleMakeCallback(new \ReflectionFunction($rule['create']), $rule);
+        }
+
+        $class = new \ReflectionClass($rule['class'] ?? $rule['name'] ?? $name);
         $params = null;
         $constructor = $class->getConstructor();
 
@@ -401,66 +400,59 @@ class Box implements \ArrayAccess
         } else if ($params) {
             // Get a closure based on the type of object being created: Shared, normal or constructorless
             // This class has depenencies, call the $params closure to generate them based on $args and $share
-            $closure = static fn(array $args, array $share) => new $class->name(...$params($args, $share));
+            $closure = static fn(array $args = null, array $share = null) => new $class->name(...$params($args, $share));
         } else {
             // No constructor arguments, just instantiate the class
             $closure = static fn() => new $class->name;
         }
 
-        if ($rule['shared'] ?? $this->defaults['shared']) {
-            $closure = function (array $args, array $share) use ($class, $rule, $constructor, $params, $closure) {
-                $instance = &Val::ref($rule['name'], $this->data, true);
-
-                //Internal classes may not be able to be constructed without calling the constructor
-                if ($class->isInternal()) {
-                    $instance = $closure();
-                } else {
+        if ($rule['shared']) {
+            $closure = function (array $args = null, array $share = null) use ($class, $rule, $constructor, $params, $closure) {
+                $instance = $class->isInternal() ?
+                    //Internal classes may not be able to be constructed without calling the constructor
+                    $closure($args, $share) :
                     //Otherwise, create the class without calling the constructor
-                    $instance = $class->newInstanceWithoutConstructor();
+                    $class->newInstanceWithoutConstructor();
 
-                    // Now call this constructor after constructing all the dependencies. This avoids problems with cyclic references.
-                    if ($constructor) {
-                        $constructor->invokeArgs($instance, $params($args, $share));
-                    }
+                $this->ruleInject($instance, $rule['name']);
+
+                // Now call this constructor after constructing all the dependencies. This avoids problems with cyclic references.
+                if (!$class->isInternal() && $constructor) {
+                    $constructor->invokeArgs($instance, $params($args, $share));
                 }
 
                 return $instance;
             };
         }
 
-        if (empty($rule['call'])) {
+        if (empty($rule['calls'])) {
             return $closure;
         }
 
-        // When $rule['call'] is set, wrap the closure in another closure which will call the required methods after constructing the object
+        // When $rule['calls'] is set, wrap the closure in another closure which will call the required methods after constructing the object
 		// By putting this in a closure, the loop is never executed unless call is actually set
-		return function (array $args, array $share) use ($closure, $class, $rule) {
+		return function (array $args = null, array $share = null) use ($closure, $class, $rule) {
 			// Construct the object using the original closure
 			$object = $closure($args, $share);
 
-			foreach ($rule['call'] as $call) {
+			foreach (is_array($rule['calls'][0] ?? null) ? $rule['calls'] : array($rule['calls']) as $callArgs) {
 				// Generate the method arguments using getParams() and call the returned closure
-                $chain = str_starts_with($call[0], '->');
-                $method = ltrim($call[0], '->');
-				$params = $this->ruleParams($class->getMethod($method), array('shareInstances' => $rule['shareInstances'] ?? array()))(($this->ruleExpand($call[1] ?? array())), $share);
-				$return = $object->{$method}(...$params);
+                $chain = '@' === $callArgs[0][0];
+                $method = ltrim(array_shift($callArgs), '@');
+				$params = $this->ruleParams($class->getMethod($method), array('shareInstances' => $rule['shareInstances'] ?? array()));
+				$return = $object->{$method}(...$params($this->ruleExpand($callArgs), $share));
 
-				if (isset($call[2])) {
-                    if (is_callable($call[2])) {
-                        call_user_func($call[2], $return);
-                    } elseif ($chain) {
-						if ($rule['shared'] ?? false) {
-                            $instance = &Val::ref($rule['name'], $this->data, true);
-                            $instance = $return;
-                        }
+                if ($chain) {
+                    if ($rule['shared']) {
+                        $this->ruleInject($return, $rule['name']);
+                    }
 
-                        if (is_object($return)) {
-                            $class = new \ReflectionClass(get_class($return));
-                        }
+                    if (is_object($return)) {
+                        $class = new \ReflectionClass(get_class($return));
+                    }
 
-						$object = $return;
-					}
-				}
+                    $object = $return;
+                }
 			}
 
 			return $object;
