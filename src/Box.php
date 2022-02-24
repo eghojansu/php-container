@@ -242,8 +242,6 @@ class Box implements \ArrayAccess
             $new = $rule ?? array();
         }
 
-        $new += compact('name', 'set');
-
         if (isset($new['class']) && ($new['inherit'] ?? $this->defaults['inherit'])) {
             $new = array_replace_recursive($this->ruleGet($new['class']), $new);
         }
@@ -276,29 +274,22 @@ class Box implements \ArrayAccess
             return Arr::reduce($method->getParameters(), function(array $params, \ReflectionParameter $param) use ($rule, &$useArgs, &$useShare) {
                 $type = $param->getType();
                 $class = $type instanceof \ReflectionNamedType && !$type->isBuiltin() ? $type->getName() : null;
-                $sub = isset($rule['substitutions'][$class]);
+                $sub = $rule['substitutions'][$class] ?? null;
 
                 if ($useArgs && $this->ruleMatchParam($param, $class, $useArgs, $value)) {
                     $params[] = $value;
                 } elseif ($useShare && $this->ruleMatchParam($param, $class, $useShare, $value)) {
                     $params[] = $value;
+                } elseif ($param->isVariadic()) {
+                    $params = array_merge($params, array_splice($useArgs, 0));
                 } elseif ($class) {
                     try {
                         $params[] = $sub ?
-                            $this->ruleExpand($rule['substitutions'][$class], $useShare, true) :
+                            $this->ruleExpand($sub, $useShare, true) :
                             ($param->allowsNull() ? null : $this->make($class, null, $useShare));
                     } catch (\InvalidArgumentException $e) {}
-                } elseif ($param->isVariadic()) {
-                    $params = array_merge($params, array_splice($useArgs, 0));
-                } elseif ($useArgs && $type?->getName()) {
-                    $check = 'is_' . $type->getName();
-
-                    for ($i = 0, $j = count($useArgs); $i < $j; $i++) {
-                        if ($check($useArgs[$i])) {
-                            $params[] = array_splice($useArgs, $i, 1)[0];
-                            break;
-                        }
-                    }
+                } elseif ($useArgs && $this->ruleMatchType($type?->getName(), $useArgs, $match)) {
+                    $params[] = array_splice($useArgs, $match[0], 1)[0];
                 } elseif ($useArgs) {
                     $params[] = $this->ruleExpand(array_shift($useArgs));
                 } else {
@@ -364,6 +355,11 @@ class Box implements \ArrayAccess
         return false;
     }
 
+    protected function ruleMatchType(string|null $type, array $args, array &$match = null): bool
+    {
+        return $type && Arr::some($args, static fn($value) => ('is_' . $type)($value), $match);
+    }
+
     protected function ruleMakeCallback(\ReflectionFunction $fun, array $rule): \Closure
     {
         $params = $this->ruleParams($fun, $rule);
@@ -417,7 +413,7 @@ class Box implements \ArrayAccess
                 $this->ruleInject($instance, $rule['name']);
 
                 // Now call this constructor after constructing all the dependencies. This avoids problems with cyclic references.
-                if (!$class->isInternal() && $constructor) {
+                if ($constructor && !$class->isInternal()) {
                     $constructor->invokeArgs($instance, $params($args, $share));
                 }
 
