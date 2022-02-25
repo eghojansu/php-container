@@ -1,6 +1,6 @@
 <?php
 
-use Ekok\Container\Box;
+use Ekok\Container\Di;
 
 class CyclicA
 {
@@ -73,8 +73,8 @@ class MethodWithDefaultNull
     {}
 }
 
-class BoxEater
+class DependsDi
 {
-    public function __construct(public Box $box)
+    public function __construct(public Di $di)
     {}
 }
