@@ -66,7 +66,7 @@ class DiTest extends \Codeception\Test\Unit
         $date = $this->di->make('datetime');
 
         $this->assertInstanceOf('DateTime', $date);
-        $this->assertSame($date, $this->di->make('datetime'));
+        $this->assertSame($date, $this->di->make('DateTime'));
     }
 
     public function testDIInherit()
@@ -303,5 +303,37 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame($this->di, $this->di->make('my_di')->di);
         $this->assertSame($this->di, $this->di->make('my_second_di')->di);
         $this->assertSame($this->di, $this->di->make('my_third_di')->di);
+    }
+
+    public function testRuleAlias()
+    {
+        $this->di->addRule('foo', array(
+            'class' => 'MethodWithDefaultNull',
+            'alias' => true,
+            'shared' => true,
+        ));
+
+        $date = $this->di->make('DateTime');
+        $date2 = $this->di->make('datetime');
+        $foo = $this->di->make('foo');
+        $foo2 = $this->di->make('MethodWithDefaultNull');
+
+        $this->assertNotSame($date, $date2);
+        $this->assertSame($foo, $foo2);
+    }
+
+    public function testTagged()
+    {
+        $this->di->defaults(array('shared' => true));
+        $this->di->addRule('foo', array('tags' => 'tag', 'class' => 'stdClass'));
+        $this->di->addRule('bar', array('tags' => 'tag', 'class' => 'stdClass'));
+        $this->di->addRule('baz', array('tags' => 'tag', 'class' => 'stdClass'));
+
+        $foo = $this->di->make('foo');
+        $bar = $this->di->make('bar');
+        $baz = $this->di->make('baz');
+        $actual = array($foo, $bar, $baz);
+
+        $this->assertSame($actual, $this->di->tagged('tag'));
     }
 }

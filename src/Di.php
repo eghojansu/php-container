@@ -9,7 +9,9 @@ use Ekok\Utils\Val;
 class Di
 {
     protected $rules = array();
+    protected $maps = array();
     protected $cache = array();
+    protected $tags = array();
     protected $instances = array();
     protected $defaults = array(
         'inherit' => true,
@@ -44,15 +46,36 @@ class Di
             return $this;
         }
 
-        return $this->instances[$key] ?? (function () use ($key, $args, $share) {
-            $rule = $this->getRule($key);
+        return (
+            $this->instances[$key] ??
+            $this->instances[$this->maps[$key] ?? null] ??
+            (function () use ($key, $args, $share) {
+                $rule = $this->getRule($key);
 
-            return $this->instances[$rule['set']] ?? (function () use ($key, $args, $share, $rule) {
-                $make = $this->cache[$key] ?? $this->cache[$rule['set']] ?? ($this->cache[$rule['set']] = $this->getClosure($key, $rule));
+                return $this->instances[$rule['set']] ?? (function () use ($key, $args, $share, $rule) {
+                    return (
+                        $this->cache[$key] ??
+                        $this->cache[$rule['set']] ??
+                        ($this->cache[$rule['set']] = $this->getClosure($key, $rule))
+                    )($args, $share);
+                })();
+            })()
+        );
+    }
 
-                return $make($args, $share);
-            })();
-        })();
+    public function tagged(string ...$tags): array
+    {
+        return Arr::reduce(
+            $tags,
+            fn (array $tagged, string $tag) => array_merge(
+                $tagged,
+                array_map(
+                    fn($name) => $this->make($name),
+                    $this->tags[$tag] ?? array(),
+                ),
+            ),
+            array(),
+        );
     }
 
     public function defaults(array $defaults): static
@@ -101,9 +124,25 @@ class Di
         return $this;
     }
 
-    public function inject($instance, string $key = null): static
+    public function inject($instance, array $rule = null): static
     {
-        $this->instances[strtolower($key ?? get_class($instance))] = $instance;
+        $name = strtolower($rule['name'] ?? get_class($instance));
+        $alias = $rule['alias'] ?? null;
+
+        $this->instances[$name] = $instance;
+
+        if (($a = is_string($alias)) || ($alias && isset($rule['class']))) {
+            $use = $a ? $alias : $rule['class'];
+
+            $this->maps[$use] = $name;
+        }
+
+        if (isset($rule['tags'])) {
+            Arr::each((array) $rule['tags'], function ($tag) use ($name) {
+                $tags = &$this->tags[$tag];
+                $tags[] = $name;
+            });
+        }
 
         return $this;
     }
@@ -217,7 +256,7 @@ class Di
 
         if ($rule['shared']) {
             $closure = function(array $args = null, array $share = null) use ($closure, $rule) {
-                $this->inject($instance = $closure($args, $share), $rule['name']);
+                $this->inject($instance = $closure($args, $share), $rule);
 
                 return $instance;
             };
@@ -260,7 +299,7 @@ class Di
                     //Otherwise, create the class without calling the constructor
                     $class->newInstanceWithoutConstructor();
 
-                $this->inject($instance, $rule['name']);
+                $this->inject($instance, $rule);
 
                 // Now call this constructor after constructing all the dependencies. This avoids problems with cyclic references.
                 if ($constructor && !$class->isInternal()) {
@@ -290,7 +329,7 @@ class Di
 
                 if ($chain) {
                     if ($rule['shared']) {
-                        $this->inject($return, $rule['name']);
+                        $this->inject($return, $rule);
                     }
 
                     if (is_object($return)) {
