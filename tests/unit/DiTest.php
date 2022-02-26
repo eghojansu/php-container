@@ -51,6 +51,24 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame($date, $this->di->callArguments('datetime@format', array($format)));
     }
 
+    public function testCallNamedArguments()
+    {
+        define('x', 1);
+        $cb = static function (Di $di, string $foo, int $bar, ...$rest) {
+            return $foo . '-' . $bar . '-' . implode(':', $rest);
+        };
+        $arguments = array(
+            22,
+            23,
+            'bar' => '1',
+            'foo' => 'foo',
+        );
+        $expected = 'foo-1-22:23';
+        $actual = $this->di->callArguments($cb, $arguments);
+
+        $this->assertSame($expected, $actual);
+    }
+
     public function testDI()
     {
         $box = $this->di->make('my_obj');

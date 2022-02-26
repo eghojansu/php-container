@@ -177,6 +177,9 @@ class Di
                             $this->expand($sub, $useShare, true) :
                             ($param->allowsNull() ? null : $this->make($class, null, $useShare));
                     } catch (\InvalidArgumentException $e) {}
+                } elseif (isset($useArgs[$param->name])) {
+                    $params[] = $useArgs[$param->name];
+                    unset($useArgs[$param->name]);
                 } elseif ($useArgs && $this->matchType($type?->getName(), $useArgs, $match)) {
                     $params[] = array_splice($useArgs, $match[0], 1)[0];
                 } elseif ($useArgs) {
