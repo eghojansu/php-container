@@ -170,7 +170,8 @@ class Di
                 } elseif ($useShare && $this->matchClass($param, $class, $useShare, $value)) {
                     $params[] = $value;
                 } elseif ($param->isVariadic()) {
-                    $params = array_merge($params, array_splice($useArgs, 0));
+                    $params = array_merge($params, array_values($useArgs));
+                    $useArgs = array();
                 } elseif ($class) {
                     try {
                         $params[] = $sub ?
