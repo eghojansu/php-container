@@ -103,6 +103,13 @@ class Box implements \ArrayAccess
         return $this;
     }
 
+    public function occupy(array $data): static
+    {
+        Arr::each($data, fn($value, $key) => $this->has($key) ? null : $this->set($key, $value));
+
+        return $this;
+    }
+
     public function push($key, ...$values): static
     {
         $data = $this->get($key);

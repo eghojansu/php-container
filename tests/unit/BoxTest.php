@@ -109,4 +109,12 @@ class BoxTest extends \Codeception\Test\Unit
         )));
         $this->assertFalse($this->box->allRemove('numbers_0', 'numbers_1', 'numbers_2', 'numbers_3')->some('numbers_0'));
     }
+
+    public function testOccupy()
+    {
+        $this->box->allSet(array('foo' => 'bar'));
+        $this->box->occupy(array('foo' => 'baz'));
+
+        $this->assertSame('bar', $this->box->get('foo'));
+    }
 }
