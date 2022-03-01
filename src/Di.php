@@ -131,8 +131,8 @@ class Di
 
         $this->instances[$name] = $instance;
 
-        if (($a = is_string($alias)) || ($alias && isset($rule['class']))) {
-            $use = $a ? $alias : $rule['class'];
+        if ($alias) {
+            $use = is_string($alias) ? $alias : ($rule['class'] ?? get_class($instance));
 
             $this->maps[$use] = $name;
         }
