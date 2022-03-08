@@ -9,6 +9,7 @@ use Ekok\Utils\Val;
 class Box implements \ArrayAccess
 {
     protected $data = array();
+    protected $events = array();
 
     public function __construct(array $data = null)
     {
@@ -36,19 +37,19 @@ class Box implements \ArrayAccess
 
     public function has($key): bool
     {
-        return Val::ref($key, $this->data, false, $exists) || $exists;
+        return $this->ref($key, $this->data, false, $exists) || $exists;
     }
 
     public function &get($key)
     {
-        $val = &Val::ref($key, $this->data, true);
+        $var = &$this->ref($key, $this->data, true);
 
-        return $val;
+        return $var;
     }
 
     public function set($key, $value): static
     {
-        $var = &Val::ref($key, $this->data, true);
+        $var = &$this->ref($key, $this->data, true);
         $var = $value;
 
         return $this;
@@ -56,7 +57,7 @@ class Box implements \ArrayAccess
 
     public function remove($key): static
     {
-        Val::unref($key, $this->data);
+        $this->unref($key, $this->data);
 
         return $this;
     }
@@ -170,6 +171,33 @@ class Box implements \ArrayAccess
         return $data;
     }
 
+    public function on(string $event, callable $cb): static
+    {
+        $this->events[$event] = $cb;
+
+        return $this;
+    }
+
+    public function beforeRef(callable $cb): static
+    {
+        return $this->on(__FUNCTION__, $cb);
+    }
+
+    public function afterRef(callable $cb): static
+    {
+        return $this->on(__FUNCTION__, $cb);
+    }
+
+    public function beforeUnref(callable $cb): static
+    {
+        return $this->on(__FUNCTION__, $cb);
+    }
+
+    public function afterUnref(callable $cb): static
+    {
+        return $this->on(__FUNCTION__, $cb);
+    }
+
     public function __isset($name)
     {
         return $this->has($name);
@@ -212,5 +240,38 @@ class Box implements \ArrayAccess
     public function offsetUnset(mixed $offset): void
     {
         $this->remove($offset);
+    }
+
+    private function &ref($key, array &$ref, bool $add = false, bool &$exists = null, array &$parts = null)
+    {
+        $this->call('beforeRef', $key, $ref, $add);
+
+        $var = &Val::ref($key, $ref, $add, $exists, $parts);
+
+        $this->call('afterRef', $key, $ref, $add, $exists, $parts);
+
+        return $var;
+    }
+
+    private function unref($key, array &$ref): void
+    {
+        $this->call('beforeUnref', $key, $ref);
+
+        Val::unref($key, $ref);
+
+        $this->call('afterUnref', $key, $ref);
+    }
+
+    private function call(string $event, ...$args): void
+    {
+        $call = $this->events[$event] ?? null;
+
+        if ($call && ($this->events[$free = 'FREE_CALL.' . $event] ?? true)) {
+            $this->events[$free] = false;
+
+            $call($this, ...$args);
+
+            $this->events[$free] = true;
+        }
     }
 }

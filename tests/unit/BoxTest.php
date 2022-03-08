@@ -117,4 +117,36 @@ class BoxTest extends \Codeception\Test\Unit
 
         $this->assertSame('bar', $this->box->get('foo'));
     }
+
+    public function testEvents()
+    {
+        $this->box->set('FOO', true);
+
+        $this->assertTrue($this->box->get('FOO'));
+        $this->assertNull($this->box->get('BEFORE_REF_FOO'));
+        $this->assertNull($this->box->get('AFTER_REF_FOO'));
+
+        $this->box->remove('FOO');
+
+        $this->assertNull($this->box->get('FOO'));
+        $this->assertNull($this->box->get('BEFORE_UNREF_FOO'));
+        $this->assertNull($this->box->get('AFTER_UNREF_FOO'));
+
+        $this->box->beforeRef(static fn(Box $box, $key) => $box['BEFORE_REF_' . $key] = true);
+        $this->box->afterRef(static fn(Box $box, $key) => $box['AFTER_REF_' . $key] = true);
+        $this->box->beforeUnref(static fn(Box $box, $key) => $box['BEFORE_UNREF_' . $key] = true);
+        $this->box->afterUnref(static fn(Box $box, $key) => $box['AFTER_UNREF_' . $key] = true);
+
+        $this->box->set('FOO', true);
+
+        $this->assertTrue($this->box->get('FOO'));
+        $this->assertTrue($this->box->get('BEFORE_REF_FOO'));
+        $this->assertTrue($this->box->get('AFTER_REF_FOO'));
+
+        $this->box->remove('FOO');
+
+        $this->assertNull($this->box->get('FOO'));
+        $this->assertTrue($this->box->get('BEFORE_UNREF_FOO'));
+        $this->assertTrue($this->box->get('AFTER_UNREF_FOO'));
+    }
 }
