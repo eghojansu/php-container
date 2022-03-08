@@ -35,6 +35,26 @@ class Box implements \ArrayAccess
         return $chain ? $this : $result;
     }
 
+    public function &ref($key, array &$ref, bool $add = false, bool &$exists = null, array &$parts = null)
+    {
+        $this->trigger('beforeRef', $key, $ref, $add);
+
+        $var = &Val::ref($key, $ref, $add, $exists, $parts);
+
+        $this->trigger('afterRef', $key, $ref, $add, $exists, $parts);
+
+        return $var;
+    }
+
+    public function unref($key, array &$ref): void
+    {
+        $this->trigger('beforeUnref', $key, $ref);
+
+        Val::unref($key, $ref);
+
+        $this->trigger('afterUnref', $key, $ref);
+    }
+
     public function has($key): bool
     {
         return $this->ref($key, $this->data, false, $exists) || $exists;
@@ -256,27 +276,7 @@ class Box implements \ArrayAccess
         $this->remove($offset);
     }
 
-    private function &ref($key, array &$ref, bool $add = false, bool &$exists = null, array &$parts = null)
-    {
-        $this->call('beforeRef', $key, $ref, $add);
-
-        $var = &Val::ref($key, $ref, $add, $exists, $parts);
-
-        $this->call('afterRef', $key, $ref, $add, $exists, $parts);
-
-        return $var;
-    }
-
-    private function unref($key, array &$ref): void
-    {
-        $this->call('beforeUnref', $key, $ref);
-
-        Val::unref($key, $ref);
-
-        $this->call('afterUnref', $key, $ref);
-    }
-
-    private function call(string $event, ...$args): void
+    private function trigger(string $event, ...$args): void
     {
         $call = $this->events[$event] ?? null;
 
