@@ -132,10 +132,10 @@ class BoxTest extends \Codeception\Test\Unit
         $this->assertNull($this->box->get('BEFORE_UNREF_FOO'));
         $this->assertNull($this->box->get('AFTER_UNREF_FOO'));
 
-        $this->box->beforeRef(static fn(Box $box, $key) => $box['BEFORE_REF_' . $key] = true);
-        $this->box->afterRef(static fn(Box $box, $key) => $box['AFTER_REF_' . $key] = true);
-        $this->box->beforeUnref(static fn(Box $box, $key) => $box['BEFORE_UNREF_' . $key] = true);
-        $this->box->afterUnref(static fn(Box $box, $key) => $box['AFTER_UNREF_' . $key] = true);
+        $this->box->beforeRef(static fn($key, ...$args) => $args[1]['BEFORE_REF_' . $key] = true);
+        $this->box->afterRef(static fn($key, ...$args) => $args[1]['AFTER_REF_' . $key] = true);
+        $this->box->beforeUnref(static fn($key, ...$args) => $args[1]['BEFORE_UNREF_' . $key] = true);
+        $this->box->afterUnref(static fn($key, ...$args) => $args[1]['AFTER_UNREF_' . $key] = true);
 
         $this->box->set('FOO', true);
 

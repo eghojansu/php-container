@@ -35,41 +35,21 @@ class Box implements \ArrayAccess
         return $chain ? $this : $result;
     }
 
-    public function &ref($key, array &$ref, bool $add = false, bool &$exists = null, array &$parts = null)
-    {
-        $this->trigger('beforeRef', $key, $ref, $add);
-
-        $var = &Val::ref($key, $ref, $add, $exists, $parts);
-
-        $this->trigger('afterRef', $key, $ref, $add, $exists, $parts);
-
-        return $var;
-    }
-
-    public function unref($key, array &$ref): void
-    {
-        $this->trigger('beforeUnref', $key, $ref);
-
-        Val::unref($key, $ref);
-
-        $this->trigger('afterUnref', $key, $ref);
-    }
-
     public function has($key): bool
     {
-        return $this->ref($key, $this->data, false, $exists) || $exists;
+        return $this->ref($key, false, $exists) || $exists;
     }
 
     public function &get($key)
     {
-        $var = &$this->ref($key, $this->data, true);
+        $var = &$this->ref($key);
 
         return $var;
     }
 
     public function set($key, $value): static
     {
-        $var = &$this->ref($key, $this->data, true);
+        $var = &$this->ref($key);
         $var = $value;
 
         return $this;
@@ -77,7 +57,7 @@ class Box implements \ArrayAccess
 
     public function remove($key): static
     {
-        $this->unref($key, $this->data);
+        $this->unref($key);
 
         return $this;
     }
@@ -276,14 +256,34 @@ class Box implements \ArrayAccess
         $this->remove($offset);
     }
 
-    private function trigger(string $event, ...$args): void
+    private function &ref($key, bool $add = true, bool &$exists = null)
+    {
+        $this->trigger('beforeRef', $key, $add);
+
+        $var = &Val::ref($key, $this->data, $add, $exists);
+
+        $this->trigger('afterRef', $key, $add);
+
+        return $var;
+    }
+
+    private function unref($key): void
+    {
+        $this->trigger('beforeUnref', $key);
+
+        Val::unref($key, $this->data);
+
+        $this->trigger('afterUnref', $key);
+    }
+
+    private function trigger(string $event, $key, $add = null): void
     {
         $call = $this->events[$event] ?? null;
 
         if ($call && ($this->events[$free = 'FREE_CALL.' . $event] ?? true)) {
             $this->events[$free] = false;
 
-            $call($this, ...$args);
+            $call($key, $this->data, $this, $add);
 
             $this->events[$free] = true;
         }
