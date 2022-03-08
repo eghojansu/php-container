@@ -149,4 +149,14 @@ class BoxTest extends \Codeception\Test\Unit
         $this->assertTrue($this->box->get('BEFORE_UNREF_FOO'));
         $this->assertTrue($this->box->get('AFTER_UNREF_FOO'));
     }
+
+    public function testCopy()
+    {
+        $this->box->set('foo', 'bar');
+        $this->box->copy('foo', 'bar');
+
+        $this->assertSame($this->box->get('foo'), $this->box->get('bar'));
+        $this->assertSame($this->box->get('foo'), $this->box->cut('bar'));
+        $this->assertNull($this->box->get('bar'));
+    }
 }

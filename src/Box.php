@@ -62,6 +62,20 @@ class Box implements \ArrayAccess
         return $this;
     }
 
+    public function copy($src, $dest): static
+    {
+        return $this->set($dest, $this->get($src));
+    }
+
+    public function cut($key)
+    {
+        $var = $this->get($key);
+
+        $this->remove($key);
+
+        return $var;
+    }
+
     public function sizeOf($key): int
     {
         return match(gettype($val = $this->get($key))) {
