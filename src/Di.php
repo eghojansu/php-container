@@ -206,11 +206,14 @@ class Di
         return $call(...$params($args, $share));
     }
 
+    public function isCallExpression(string $cb, int &$pos = null): bool
+    {
+        return false !== ($pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found);
+    }
+
     public function callExpression(string $cb): array
     {
-        $pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found;
-
-        if (false === $pos) {
+        if (!$this->isCallExpression($cb, $pos)) {
             throw new \LogicException(sprintf('Invalid call expression: %s', $cb));
         }
 
