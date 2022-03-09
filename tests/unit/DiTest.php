@@ -362,4 +362,34 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame('foo', $this->di->getAlias());
         $this->assertSame($this->di, $this->di->make('foo'));
     }
+
+    public function testParamResolving()
+    {
+        $expected = 'bar:1';
+        $actual = $this->di->call(function (string $foo, int $no) {
+            return $foo . ':' . $no;
+        }, 1, 'bar');
+
+        $this->assertSame($expected, $actual);
+    }
+
+    public function testParamResolvingException()
+    {
+        $this->expectException('TypeError');
+        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 236$/');
+
+        $this->di->call(function (string $foo, int $no) {
+            return $foo . ':' . $no;
+        }, '1', 'bar');
+    }
+
+    public function testParamUnion()
+    {
+        $expected = '1:2';
+        $actual = $this->di->call(function (string|int $foo, int $no) {
+            return $foo . ':' . $no;
+        }, 1, 2);
+
+        $this->assertSame($expected, $actual);
+    }
 }

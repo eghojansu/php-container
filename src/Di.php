@@ -175,36 +175,53 @@ class Di
 
             return Arr::reduce($method->getParameters(), function(array $params, \ReflectionParameter $param) use ($rule, &$useArgs, &$useShare) {
                 $type = $param->getType();
-                $class = $type instanceof \ReflectionNamedType && !$type->isBuiltin() ? $type->getName() : null;
-                $sub = $rule['substitutions'][$class] ?? null;
 
-                if ($useArgs && $this->matchClass($param, $class, $useArgs, $value)) {
-                    $params[] = $value;
-                } elseif ($useShare && $this->matchClass($param, $class, $useShare, $value)) {
-                    $params[] = $value;
-                } elseif ($param->isVariadic()) {
-                    $params = array_merge($params, array_values($useArgs));
-                    $useArgs = array();
-                } elseif ($class) {
-                    try {
-                        $params[] = $sub ?
-                            $this->expand($sub, $useShare, true) :
-                            ($param->allowsNull() ? null : $this->make($class, null, $useShare));
-                    } catch (\InvalidArgumentException $e) {}
-                } elseif (isset($useArgs[$param->name])) {
-                    $params[] = $useArgs[$param->name];
-                    unset($useArgs[$param->name]);
-                } elseif ($useArgs && $this->matchType($type?->getName(), $useArgs, $match)) {
-                    $params[] = array_splice($useArgs, $match[0], 1)[0];
-                } elseif ($useArgs) {
-                    $params[] = $this->expand(array_shift($useArgs));
-                } else {
-                    $params[] = $param->isDefaultValueAvailable() ? $param->getDefaultValue() : null;
-                }
+                array_push(
+                    $params,
+                    ...Arr::first(
+                        $type instanceof \ReflectionUnionType ? $type->getTypes() : array($type),
+                        function (\ReflectionNamedType|null $type) use ($param, $rule, &$useArgs, &$useShare) {
+                            return $this->getParam($param, $type, $rule, $useArgs, $useShare);
+                        }
+                    ),
+                );
 
                 return $params;
             }, array());
         };
+    }
+
+    private function getParam(\ReflectionParameter $param, \ReflectionType|null $type, array|null $rule, array &$args, array &$share): array|null
+    {
+        $class = $type instanceof \ReflectionNamedType && !$type->isBuiltin() ? $type->getName() : null;
+        $sub = $rule['substitutions'][$class] ?? null;
+        $params = null;
+
+        if ($args && $this->matchClass($param, $class, $args, $value)) {
+            $params[] = $value;
+        } elseif ($share && $this->matchClass($param, $class, $share, $value)) {
+            $params[] = $value;
+        } elseif ($param->isVariadic()) {
+            $params = array_merge($params ?? array() , array_values($args));
+            $args = array();
+        } elseif ($class) {
+            try {
+                $params[] = $sub ?
+                    $this->expand($sub, $share, true) :
+                    ($param->allowsNull() ? null : $this->make($class, null, $share));
+            } catch (\InvalidArgumentException $e) {}
+        } elseif (isset($args[$param->name])) {
+            $params[] = $args[$param->name];
+            unset($args[$param->name]);
+        } elseif ($args && $type instanceof \ReflectionNamedType && $this->matchType($type->getName(), $args, $match)) {
+            $params[] = array_splice($args, $match[0], 1)[0];
+        } elseif ($args) {
+            $params[] = $this->expand(array_shift($args));
+        } else {
+            $params[] = $param->isDefaultValueAvailable() ? $param->getDefaultValue() : null;
+        }
+
+        return $params;
     }
 
     public function callArguments(callable|string $cb, array $args = null, array $share = null)
@@ -264,7 +281,7 @@ class Di
         return false;
     }
 
-    protected function matchType(string|null $type, array $args, array &$match = null): bool
+    protected function matchType(string $type, array $args, array &$match = null): bool
     {
         return $type && Arr::some($args, static fn($value) => ('is_' . $type)($value), $match);
     }
