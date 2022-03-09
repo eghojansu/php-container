@@ -354,4 +354,12 @@ class DiTest extends \Codeception\Test\Unit
 
         $this->assertSame($actual, $this->di->tagged('tag'));
     }
+
+    public function testSelfAlias()
+    {
+        $this->di->setAlias('foo');
+
+        $this->assertSame('foo', $this->di->getAlias());
+        $this->assertSame($this->di, $this->di->make('foo'));
+    }
 }

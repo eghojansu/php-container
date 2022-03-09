@@ -8,6 +8,7 @@ use Ekok\Utils\Val;
 
 class Di
 {
+    protected $alias = '_di_';
     protected $rules = array();
     protected $maps = array();
     protected $cache = array();
@@ -42,7 +43,7 @@ class Di
 
     public function make(string $key, array $args = null, array $share = null)
     {
-        if (__CLASS__ === $key || '_di_' === $key) {
+        if (__CLASS__ === $key || $this->alias === $key) {
             return $this;
         }
 
@@ -76,6 +77,18 @@ class Di
             ),
             array(),
         );
+    }
+
+    public function getAlias(): string
+    {
+        return $this->alias;
+    }
+
+    public function setAlias(string $alias): static
+    {
+        $this->alias = $alias;
+
+        return $this;
     }
 
     public function defaults(array $defaults): static
