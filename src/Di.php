@@ -221,7 +221,7 @@ class Di
 
     public function isCallExpression(string $cb, int &$pos = null): bool
     {
-        return false !== ($pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found);
+        return 0 < ($pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found);
     }
 
     public function callExpression(string $cb): array
