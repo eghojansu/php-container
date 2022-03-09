@@ -8,13 +8,13 @@ use Ekok\Utils\Val;
 
 class Di
 {
-    protected $alias = '_di_';
-    protected $rules = array();
-    protected $maps = array();
-    protected $cache = array();
-    protected $tags = array();
-    protected $instances = array();
-    protected $defaults = array(
+    private $alias = 'di';
+    private $rules = array();
+    private $maps = array();
+    private $cache = array();
+    private $tags = array();
+    private $instances = array();
+    private $defaults = array(
         'inherit' => true,
         'shared' => false,
     );
@@ -254,7 +254,7 @@ class Di
         return array($make ? $this->make($class) : $class, ltrim($method, '@:'));
     }
 
-    protected function expand($param, array $share = null, bool $createFromString = false)
+    private function expand($param, array $share = null, bool $createFromString = false)
     {
         return match(gettype($param)) {
             'array' => array_map(fn($param) => $this->expand($param, $share), $param),
@@ -264,7 +264,7 @@ class Di
         };
     }
 
-    protected function matchClass(\ReflectionParameter $param, string|null $class, array &$search = null, &$found = null): bool
+    private function matchClass(\ReflectionParameter $param, string|null $class, array &$search = null, &$found = null): bool
     {
         $found = null;
 
@@ -281,12 +281,12 @@ class Di
         return false;
     }
 
-    protected function matchType(string $type, array $args, array &$match = null): bool
+    private function matchType(string $type, array $args, array &$match = null): bool
     {
         return $type && Arr::some($args, static fn($value) => ('is_' . $type)($value), $match);
     }
 
-    protected function getCallbackClosure(\ReflectionFunction $fun, array $rule): \Closure
+    private function getCallbackClosure(\ReflectionFunction $fun, array $rule): \Closure
     {
         $params = $this->getParams($fun, $rule);
         $closure =  fn(array $args = null, array $share = null) => $fun->invokeArgs($params($args, $share));
@@ -302,7 +302,7 @@ class Di
         return $closure;
     }
 
-    protected function getClosure(string $name, array $rule): \Closure
+    private function getClosure(string $name, array $rule): \Closure
     {
         if (isset($rule['create'])) {
             return $this->getCallbackClosure(new \ReflectionFunction($rule['create']), $rule);

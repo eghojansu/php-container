@@ -309,7 +309,7 @@ class DiTest extends \Codeception\Test\Unit
             'class' => DependsDi::class,
         ));
         $this->di->addRule('my_second_di', array(
-            'params' => array('_di_'),
+            'params' => array('di'),
             'class' => DependsDi::class,
         ));
         $this->di->addRule('my_third_di', array(

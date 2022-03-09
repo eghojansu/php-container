@@ -8,8 +8,8 @@ use Ekok\Utils\Val;
 
 class Box implements \ArrayAccess
 {
-    protected $data = array();
-    protected $events = array();
+    private $data = array();
+    private $events = array();
 
     public function __construct(array $data = null)
     {
