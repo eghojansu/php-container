@@ -118,9 +118,9 @@ class Box implements \ArrayAccess
         return $this;
     }
 
-    public function occupy(array $data): static
+    public function setIfNone(array $data, string $prefix = null): static
     {
-        Arr::each($data, fn($value, $key) => $this->has($key) ? null : $this->set($key, $value));
+        Arr::each($data, fn($value, $key) => $this->has($set = $prefix . $key) ? null : $this->set($set, $value));
 
         return $this;
     }
