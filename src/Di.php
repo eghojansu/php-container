@@ -116,6 +116,13 @@ class Di
         ) + $this->defaults;
     }
 
+    public function addAlias(string $name, string $alias): static
+    {
+        $this->maps[$alias] = $this->maps[$name] ?? $name;
+
+        return $this;
+    }
+
     public function addRule(string $name, array|callable|string $rule = null): static
     {
         $set = static::ruleName($name);
