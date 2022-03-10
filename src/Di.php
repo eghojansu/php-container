@@ -50,7 +50,6 @@ class Di
         return (
             $this->instances[$key] ??
             $this->instances[$this->maps[$key] ?? null] ??
-            $this->instances[strtolower($this->maps[$key] ?? $key)] ??
             (function () use ($key, $args, $share) {
                 $rule = $this->getRule($key);
 
@@ -102,9 +101,13 @@ class Di
     public function getRule(string $class): array
     {
         $set = static::ruleName($class);
+        $add = array('name' => $class, 'set' => $set);
 
-        return array('name' => $class, 'set' => $set) + (
-            $this->rules[$class] ?? $this->rules[$set] ?? Arr::first(
+        return (
+            $this->rules[$class] ??
+            $this->rules[$set] ??
+            $this->rules[$this->maps[$class] ?? null] ??
+            Arr::first(
                 $this->rules,
                 fn ($rule, $key) => (
                     '*' !== $key
@@ -112,14 +115,14 @@ class Di
                     && empty($rule['class'])
                     && is_subclass_of($class, $key)
                     && $rule['inherit']
-                ) ? $rule : null,
+                ) ? $add + $rule : null,
             ) ?? $this->rules['*'] ?? array()
-        ) + $this->defaults;
+        ) + $add + $this->defaults;
     }
 
     public function addAlias(string $name, string $alias): static
     {
-        $this->maps[$name] = $this->maps[$alias] ?? $alias;
+        $this->maps[$name] = $this->maps[$alias] ?? strtolower($alias);
 
         return $this;
     }
@@ -142,12 +145,18 @@ class Di
 
         $this->rules[$set] = array_replace_recursive($this->getRule($name), $new);
 
+        if ($alias = $this->rules[$set]['alias'] ?? null) {
+            $use = is_string($alias) ? $alias : ($this->rules[$set]['class'] ?? $name);
+
+            $this->maps[$use] = $set;
+        }
+
         return $this;
     }
 
     public function inject($instance, array $rule = null): static
     {
-        $name = strtolower($rule['name'] ?? get_class($instance));
+        $name = static::ruleName($rule['name'] ?? get_class($instance));
         $alias = $rule['alias'] ?? null;
 
         $this->instances[$name] = $instance;

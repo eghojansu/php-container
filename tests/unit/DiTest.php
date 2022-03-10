@@ -87,24 +87,6 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame($date, $this->di->make('DateTime'));
     }
 
-    public function testDIInherit()
-    {
-        // set rule with array notation
-        $this->di->addRule('datetime', array('shared' => true));
-
-        // set rule with string notation
-        $this->di->addRule('my_date', 'DateTime');
-
-        $date = $this->di->make('datetime');
-        $myDate = $this->di->make('my_date');
-
-        $this->assertInstanceOf('DateTime', $date);
-        $this->assertInstanceOf('DateTime', $myDate);
-        $this->assertSame($date, $this->di->make('datetime'));
-        $this->assertSame($myDate, $this->di->make('my_date'));
-        $this->assertNotSame($myDate, $date);
-    }
-
     public function testRegister()
     {
         $this->di->load(TEST_DATA . '/configs/rules.php');
@@ -344,13 +326,11 @@ class DiTest extends \Codeception\Test\Unit
     {
         $this->di->defaults(array('shared' => true));
         $this->di->addRule('foo', array('tags' => 'tag', 'class' => 'stdClass'));
-        $this->di->addRule('bar', array('tags' => 'tag', 'class' => 'stdClass'));
-        $this->di->addRule('baz', array('tags' => 'tag', 'class' => 'stdClass'));
+        $this->di->addRule('bar', array('tags' => 'tag', 'class' => 'DateTime'));
 
         $foo = $this->di->make('foo');
         $bar = $this->di->make('bar');
-        $baz = $this->di->make('baz');
-        $actual = array($foo, $bar, $baz);
+        $actual = array($foo, $bar);
 
         $this->assertSame($actual, $this->di->tagged('tag'));
     }
@@ -376,7 +356,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testParamResolvingException()
     {
         $this->expectException('TypeError');
-        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 244$/');
+        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 253$/');
 
         $this->di->call(function (string $foo, int $no) {
             return $foo . ':' . $no;
