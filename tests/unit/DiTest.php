@@ -376,7 +376,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testParamResolvingException()
     {
         $this->expectException('TypeError');
-        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 243$/');
+        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 244$/');
 
         $this->di->call(function (string $foo, int $no) {
             return $foo . ':' . $no;
@@ -400,6 +400,7 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertInstanceOf('stdClass', $this->di->make('stdClass'));
         $this->assertSame($this->di->make('stdClass'), $this->di->make('std'));
         $this->assertInstanceOf('DateTime', $this->di->make('DateTime'));
-        $this->assertSame($this->di->make('std'), $this->di->addAlias('std', 'DateTime')->make('DateTime'));
+        $this->assertSame($this->di->make('std'), $this->di->addAlias('DateTime', 'std')->make('DateTime'));
+        $this->assertSame($this->di->make('std'), $this->di->addAlias('foo', 'std')->make('foo'));
     }
 }

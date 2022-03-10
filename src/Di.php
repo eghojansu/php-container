@@ -50,6 +50,7 @@ class Di
         return (
             $this->instances[$key] ??
             $this->instances[$this->maps[$key] ?? null] ??
+            $this->instances[strtolower($this->maps[$key] ?? $key)] ??
             (function () use ($key, $args, $share) {
                 $rule = $this->getRule($key);
 
@@ -118,7 +119,7 @@ class Di
 
     public function addAlias(string $name, string $alias): static
     {
-        $this->maps[$alias] = $this->maps[$name] ?? $name;
+        $this->maps[$name] = $this->maps[$alias] ?? $alias;
 
         return $this;
     }
