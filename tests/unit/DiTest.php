@@ -60,7 +60,7 @@ class DiTest extends \Codeception\Test\Unit
         $arguments = array(
             22,
             23,
-            'bar' => '1',
+            'bar' => 1,
             'foo' => 'foo',
         );
         $expected = 'foo-1-22:23';
@@ -356,7 +356,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testParamResolvingException()
     {
         $this->expectException('TypeError');
-        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 253$/');
+        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 255$/');
 
         $this->di->call(function (string $foo, int $no) {
             return $foo . ':' . $no;
