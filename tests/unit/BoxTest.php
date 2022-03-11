@@ -25,6 +25,7 @@ class BoxTest extends \Codeception\Test\Unit
 
     public function testContainer()
     {
+        $this->assertArrayHasKey('foo', $this->box->getData());
         $this->assertTrue($this->box->has('foo.bar'));
         $this->assertSame('baz', $this->box->get('foo.bar'));
         $this->assertSame(3, $this->box->sizeOf('foo.bar'));
@@ -116,38 +117,6 @@ class BoxTest extends \Codeception\Test\Unit
         $this->box->setIfNone(array('foo' => 'baz'));
 
         $this->assertSame('bar', $this->box->get('foo'));
-    }
-
-    public function testEvents()
-    {
-        $this->box->set('FOO', true);
-
-        $this->assertTrue($this->box->get('FOO'));
-        $this->assertNull($this->box->get('BEFORE_REF_FOO'));
-        $this->assertNull($this->box->get('AFTER_REF_FOO'));
-
-        $this->box->remove('FOO');
-
-        $this->assertNull($this->box->get('FOO'));
-        $this->assertNull($this->box->get('BEFORE_UNREF_FOO'));
-        $this->assertNull($this->box->get('AFTER_UNREF_FOO'));
-
-        $this->box->beforeRef(static fn($key, ...$args) => $args[1]['BEFORE_REF_' . $key] = true);
-        $this->box->afterRef(static fn($key, ...$args) => $args[1]['AFTER_REF_' . $key] = true);
-        $this->box->beforeUnref(static fn($key, ...$args) => $args[1]['BEFORE_UNREF_' . $key] = true);
-        $this->box->afterUnref(static fn($key, ...$args) => $args[1]['AFTER_UNREF_' . $key] = true);
-
-        $this->box->set('FOO', true);
-
-        $this->assertTrue($this->box->get('FOO'));
-        $this->assertTrue($this->box->get('BEFORE_REF_FOO'));
-        $this->assertTrue($this->box->get('AFTER_REF_FOO'));
-
-        $this->box->remove('FOO');
-
-        $this->assertNull($this->box->get('FOO'));
-        $this->assertTrue($this->box->get('BEFORE_UNREF_FOO'));
-        $this->assertTrue($this->box->get('AFTER_UNREF_FOO'));
     }
 
     public function testCopy()

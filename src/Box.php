@@ -8,8 +8,7 @@ use Ekok\Utils\Val;
 
 class Box implements \ArrayAccess
 {
-    private $data = array();
-    private $events = array();
+    protected $data = array();
 
     public function __construct(array $data = null)
     {
@@ -33,6 +32,11 @@ class Box implements \ArrayAccess
         $result = $cb($key ? $this->get($key) : $this, $this);
 
         return $chain ? $this : $result;
+    }
+
+    public function getData(): array
+    {
+        return $this->data;
     }
 
     public function has($key): bool
@@ -185,33 +189,6 @@ class Box implements \ArrayAccess
         return $data;
     }
 
-    public function on(string $event, callable $cb): static
-    {
-        $this->events[$event] = $cb;
-
-        return $this;
-    }
-
-    public function beforeRef(callable $cb): static
-    {
-        return $this->on(__FUNCTION__, $cb);
-    }
-
-    public function afterRef(callable $cb): static
-    {
-        return $this->on(__FUNCTION__, $cb);
-    }
-
-    public function beforeUnref(callable $cb): static
-    {
-        return $this->on(__FUNCTION__, $cb);
-    }
-
-    public function afterUnref(callable $cb): static
-    {
-        return $this->on(__FUNCTION__, $cb);
-    }
-
     public function __isset($name)
     {
         return $this->has($name);
@@ -256,36 +233,15 @@ class Box implements \ArrayAccess
         $this->remove($offset);
     }
 
-    private function &ref($key, bool $add = true, bool &$exists = null)
+    protected function &ref($key, bool $add = true, bool &$exists = null)
     {
-        $this->trigger('beforeRef', $key, $add);
-
         $var = &Val::ref($key, $this->data, $add, $exists);
-
-        $this->trigger('afterRef', $key, $add);
 
         return $var;
     }
 
-    private function unref($key): void
+    protected function unref($key): void
     {
-        $this->trigger('beforeUnref', $key);
-
         Val::unref($key, $this->data);
-
-        $this->trigger('afterUnref', $key);
-    }
-
-    private function trigger(string $event, $key, $add = null): void
-    {
-        $call = $this->events[$event] ?? null;
-
-        if ($call && ($this->events[$free = 'FREE_CALL.' . $event] ?? true)) {
-            $this->events[$free] = false;
-
-            $call($key, $this->data, $this, $add);
-
-            $this->events[$free] = true;
-        }
     }
 }
