@@ -3,7 +3,6 @@
     "description": "PHP Container",
     "type": "library",
     "license": "MIT",
-    "minimum-stability": "stable",
     "authors": [
         {
             "name": "Eko Kurniawan",
@@ -17,7 +16,7 @@
     },
     "require": {
         "php": ">=8.0",
-        "ekok/php-utils": "dev-master"
+        "ekok/php-utils": "^0"
     },
     "require-dev": {
         "codeception/codeception": "~4.1",
