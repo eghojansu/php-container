@@ -1,5 +1,6 @@
 <?php
 
+use Ekok\Container\ContainerAwareInterface;
 use Ekok\Container\Di;
 
 class CyclicA
@@ -77,4 +78,14 @@ class DependsDi
 {
     public function __construct(public Di $di)
     {}
+}
+
+class ContainerAware implements ContainerAwareInterface
+{
+    public $container;
+
+    public function setContainer(Di $di)
+    {
+        $this->container = $di;
+    }
 }

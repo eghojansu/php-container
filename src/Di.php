@@ -366,6 +366,16 @@ class Di
             };
         }
 
+        if ($class->implementsInterface(ContainerAwareInterface::class)) {
+            $closure = function (array $args = null, array $share = null) use ($closure) {
+                /** @var ContainerAwareInterface */
+                $obj = $closure($args, $share);
+                $obj->setContainer($this);
+
+                return $obj;
+            };
+        }
+
         if (empty($rule['calls'])) {
             return $closure;
         }

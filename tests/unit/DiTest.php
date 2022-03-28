@@ -383,4 +383,11 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame($this->di->make('std'), $this->di->addAlias('DateTime', 'std')->make('DateTime'));
         $this->assertSame($this->di->make('std'), $this->di->addAlias('foo', 'std')->make('foo'));
     }
+
+    public function testContainerAware()
+    {
+        $obj = $this->di->make(ContainerAware::class);
+
+        $this->assertSame($this->di, $obj->container);
+    }
 }
