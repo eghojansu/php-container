@@ -390,4 +390,24 @@ class DiTest extends \Codeception\Test\Unit
 
         $this->assertSame($this->di, $obj->container);
     }
+
+    public function testFactory()
+    {
+        $this->di->addRule('std', 'StdFactory::create');
+        $this->di->addRule('date', 'DateFactory@__invoke');
+
+        $std = $this->di->make('std');
+        $std2 = $this->di->make('std');
+
+        $this->assertInstanceOf('stdClass', $std);
+        $this->assertInstanceOf('stdClass', $std2);
+        $this->assertNotSame($std, $std2);
+
+        $date = $this->di->make('date');
+        $date2 = $this->di->make('date');
+
+        $this->assertInstanceOf('DateTime', $date);
+        $this->assertInstanceOf('DateTime', $date2);
+        $this->assertNotSame($date, $date2);
+    }
 }

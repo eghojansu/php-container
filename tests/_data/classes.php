@@ -89,3 +89,19 @@ class ContainerAware implements ContainerAwareInterface
         $this->container = $di;
     }
 }
+
+class StdFactory
+{
+    public static function create()
+    {
+        return new stdClass();
+    }
+}
+
+class DateFactory
+{
+    public function __invoke(...$args)
+    {
+        return new \DateTime(...$args);
+    }
+}

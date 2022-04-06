@@ -134,7 +134,7 @@ class Di
     {
         $set = static::ruleName($name);
 
-        if (is_callable($rule)) {
+        if (is_callable($rule) || (is_string($rule) && Call::check($rule))) {
             $new = array('create' => $rule);
         } elseif (is_string($rule)) {
             $new = array('class' => $rule);
@@ -301,10 +301,23 @@ class Di
         return $type && Arr::some($args, static fn($value) => ('is_' . $type)($value), $match);
     }
 
-    private function getCallbackClosure(\ReflectionFunction $fun, array $rule): \Closure
+    private function getCallbackClosure($factory, array $rule): \Closure
     {
-        $params = $this->getParams($fun, $rule);
-        $closure =  fn(array $args = null, array $share = null) => $fun->invokeArgs($params($args, $share));
+        if (is_string($factory) && Call::check($factory)) {
+            $call = $this->callExpression($factory);
+            $fun = new \ReflectionMethod(...$call);
+            $params = $this->getParams($fun, $rule);
+            $closure =  fn(array $args = null, array $share = null) => $fun->invokeArgs(
+                is_string($call[0]) ? null : $call[0],
+                $params($args, $share),
+            );
+        } else {
+            $fun = new \ReflectionFunction($factory);
+            $params = $this->getParams($fun, $rule);
+            $closure = static fn(array $args = null, array $share = null) => $fun->invokeArgs(
+                $params($args, $share),
+            );
+        }
 
         if ($rule['shared']) {
             $closure = function(array $args = null, array $share = null) use ($closure, $rule) {
@@ -320,7 +333,7 @@ class Di
     private function getClosure(string $name, array $rule): \Closure
     {
         if (isset($rule['create'])) {
-            return $this->getCallbackClosure(new \ReflectionFunction($rule['create']), $rule);
+            return $this->getCallbackClosure($rule['create'], $rule);
         }
 
         $class = new \ReflectionClass($rule['class'] ?? $rule['name'] ?? $name);
