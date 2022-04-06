@@ -356,7 +356,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testParamResolvingException()
     {
         $this->expectException('TypeError');
-        $this->expectExceptionMessageMatches('/Argument \#2 \(\$no\) must be of type int, string given, called in .+ on line 255$/');
+        $this->expectExceptionMessageMatches('/Argument #2 \(\$no\) must be of type int, string given, called in .+ on line 256$/');
 
         $this->di->call(function (string $foo, int $no) {
             return $foo . ':' . $no;

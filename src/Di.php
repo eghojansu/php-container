@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ekok\Container;
 
 use Ekok\Utils\Arr;
+use Ekok\Utils\Call;
 use Ekok\Utils\File;
 use Ekok\Utils\Val;
 
@@ -255,14 +256,9 @@ class Di
         return $call(...$params($args, $share));
     }
 
-    public function isCallExpression(string $cb, int &$pos = null): bool
-    {
-        return 0 < ($pos = false === ($found = strpos($cb, '@')) ? strpos($cb, ':') : $found);
-    }
-
     public function callExpression(string $cb): array
     {
-        if (!$this->isCallExpression($cb, $pos)) {
+        if (!Call::check($cb, $pos)) {
             throw new \LogicException(sprintf('Invalid call expression: %s', $cb));
         }
 
