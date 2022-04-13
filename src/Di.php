@@ -256,7 +256,7 @@ class Di
         return $call(...$params($args, $share));
     }
 
-    public function getCallable(callable|string $cb): callable
+    public function getCallable(callable|string $cb): callable|array
     {
         return is_callable($cb) ? $cb : $this->callExpression($cb);
     }
