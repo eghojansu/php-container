@@ -246,7 +246,7 @@ class Di
 
     public function callArguments(callable|string $cb, array $args = null, array $share = null)
     {
-        $call = is_callable($cb) ? $cb : $this->callExpression($cb);
+        $call = $this->getCallable($cb);
         $params = $this->getParams(
             is_array($call) ?
                 new \ReflectionMethod($call[0], $call[1]) :
@@ -254,6 +254,11 @@ class Di
         );
 
         return $call(...$params($args, $share));
+    }
+
+    public function getCallable(callable|string $cb): callable
+    {
+        return is_callable($cb) ? $cb : $this->callExpression($cb);
     }
 
     public function callExpression(string $cb): array
