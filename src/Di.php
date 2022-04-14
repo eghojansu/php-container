@@ -11,7 +11,7 @@ use Ekok\Utils\Val;
 
 class Di
 {
-    private $alias = 'di';
+    private $selfAlias = 'di';
     private $rules = array();
     private $maps = array();
     private $cache = array();
@@ -32,69 +32,24 @@ class Di
         return ltrim(strtolower($name), '\\');
     }
 
-    public function load(string ...$files): static
+    public function getSelfAlias(): string
     {
-        array_walk($files, fn(string $file) => $this->register(File::load($file) ?? array()));
+        return $this->selfAlias;
+    }
+
+    public function setSelfAlias(string $alias): static
+    {
+        $this->selfAlias = $alias;
 
         return $this;
     }
 
-    public function call(callable|string $cb, ...$args)
+    public function getDefaults(): array
     {
-        return $this->callArguments($cb, $args);
+        return $this->defaults;
     }
 
-    public function make(string $key, array $args = null, array $share = null)
-    {
-        if (__CLASS__ === $key || $this->alias === $key) {
-            return $this;
-        }
-
-        return (
-            $this->instances[$key] ??
-            $this->instances[$this->maps[$key] ?? null] ??
-            (function () use ($key, $args, $share) {
-                $rule = $this->getRule($key);
-
-                return $this->instances[$rule['set']] ?? (function () use ($key, $args, $share, $rule) {
-                    return (
-                        $this->cache[$key] ??
-                        $this->cache[$rule['set']] ??
-                        ($this->cache[$rule['set']] = $this->getClosure($key, $rule))
-                    )($args, $share);
-                })();
-            })()
-        );
-    }
-
-    public function tagged(string ...$tags): array
-    {
-        return Arr::reduce(
-            $tags,
-            fn (array $tagged, string $tag) => array_merge(
-                $tagged,
-                array_map(
-                    fn($name) => $this->make($name),
-                    $this->tags[$tag] ?? array(),
-                ),
-            ),
-            array(),
-        );
-    }
-
-    public function getAlias(): string
-    {
-        return $this->alias;
-    }
-
-    public function setAlias(string $alias): static
-    {
-        $this->alias = $alias;
-
-        return $this;
-    }
-
-    public function defaults(array $defaults): static
+    public function setDefaults(array $defaults): static
     {
         $this->defaults = array_replace_recursive($this->defaults, $defaults);
 
@@ -123,14 +78,7 @@ class Di
         ) + $add + $this->defaults;
     }
 
-    public function addAlias(string $name, string $alias): static
-    {
-        $this->maps[$name] = $this->maps[$alias] ?? strtolower($alias);
-
-        return $this;
-    }
-
-    public function addRule(string $name, array|callable|string $rule = null): static
+    public function setRule(string $name, array|callable|string $rule = null): static
     {
         $set = static::ruleName($name);
 
@@ -157,7 +105,38 @@ class Di
         return $this;
     }
 
-    public function inject($instance, array $rule = null): static
+    public function getAlias(string $name): string|null
+    {
+        return $this->maps[$name] ?? null;
+    }
+
+    public function setAlias(string $name, string $alias): static
+    {
+        $this->maps[$name] = $this->maps[$alias] ?? strtolower($alias);
+
+        return $this;
+    }
+
+    public function load(string ...$files): static
+    {
+        array_walk($files, fn(string $file) => $this->register(File::load($file) ?? array()));
+
+        return $this;
+    }
+
+    public function register(array $rules): static
+    {
+        array_walk($rules, fn ($rule, $name) => $this->setRule($name, $rule));
+
+        return $this;
+    }
+
+    public function get(string $key): object
+    {
+        return $this->make($key);
+    }
+
+    public function set($instance, array $rule = null): static
     {
         $name = static::ruleName($rule['name'] ?? get_class($instance));
         $alias = $rule['alias'] ?? null;
@@ -180,11 +159,42 @@ class Di
         return $this;
     }
 
-    public function register(array $rules): static
+    public function tagged(string ...$tags): array
     {
-        array_walk($rules, fn ($rule, $name) => $this->addRule($name, $rule));
+        return array_reduce(
+            $tags,
+            fn (array $tagged, string $tag) => array_merge(
+                $tagged,
+                array_map(
+                    fn($name) => $this->make($name),
+                    $this->tags[$tag] ?? array(),
+                ),
+            ),
+            array(),
+        );
+    }
 
-        return $this;
+    public function make(string $key, array $args = null, array $share = null)
+    {
+        if (__CLASS__ === $key || $this->selfAlias === $key) {
+            return $this;
+        }
+
+        return (
+            $this->instances[$key] ??
+            $this->instances[$this->maps[$key] ?? null] ??
+            (function () use ($key, $args, $share) {
+                $rule = $this->getRule($key);
+
+                return $this->instances[$rule['set']] ?? (function () use ($key, $args, $share, $rule) {
+                    return (
+                        $this->cache[$key] ??
+                        $this->cache[$rule['set']] ??
+                        ($this->cache[$rule['set']] = $this->getClosure($key, $rule))
+                    )($args, $share);
+                })();
+            })()
+        );
     }
 
     public function getParams(\ReflectionFunctionAbstract $method, array $rule = null): \Closure
@@ -209,6 +219,54 @@ class Di
                 return $params;
             }, array());
         };
+    }
+
+    public function call(callable|string $cb, ...$args)
+    {
+        return $this->callArguments($cb, $args);
+    }
+
+    public function callArguments(callable|string $cb, array $args = null, array $share = null)
+    {
+        $call = $this->getCallable($cb, $callable);
+
+        if (!$callable) {
+            throw new \BadMethodCallException(sprintf(
+                'Call to undefined method %s::%s',
+                is_string($call[0]) ? $call[0] : get_class($call[0]),
+                $call[1],
+            ));
+        }
+
+        $params = $this->getParams(
+            is_array($call) ?
+                new \ReflectionMethod(...$call) :
+                new \ReflectionFunction($call)
+        );
+
+        return $call(...$params($args, $share));
+    }
+
+    public function getCallable(callable|string $cb, bool &$callable = null): callable|array
+    {
+        $call = is_callable($cb) ? $cb : $this->callExpression($cb);
+        $callable = is_callable($call);
+
+        return $call;
+    }
+
+    public function callExpression(string $cb): callable|array
+    {
+        if (!Call::check($cb, $pos)) {
+            // allow invokable class
+            return $this->make($cb);
+        }
+
+        $make = '@' === $cb[$pos];
+        $class = substr($cb, 0, $pos);
+        $method = ltrim(substr($cb, $pos + 1), '@:');
+
+        return array($make ? $this->make($class) : $class, $method);
     }
 
     private function getParam(\ReflectionParameter $param, \ReflectionType|null $type, array|null $rule, array &$args, array &$share): array|null
@@ -242,36 +300,6 @@ class Di
         }
 
         return $params;
-    }
-
-    public function callArguments(callable|string $cb, array $args = null, array $share = null)
-    {
-        $call = $this->getCallable($cb);
-        $params = $this->getParams(
-            is_array($call) ?
-                new \ReflectionMethod($call[0], $call[1]) :
-                new \ReflectionFunction($call)
-        );
-
-        return $call(...$params($args, $share));
-    }
-
-    public function getCallable(callable|string $cb): callable|array
-    {
-        return is_callable($cb) ? $cb : $this->callExpression($cb);
-    }
-
-    public function callExpression(string $cb): array
-    {
-        if (!Call::check($cb, $pos)) {
-            throw new \LogicException(sprintf('Invalid call expression: %s', $cb));
-        }
-
-        $make = '@' === $cb[$pos];
-        $class = substr($cb, 0, $pos);
-        $method = substr($cb, $pos + 1);
-
-        return array($make ? $this->make($class) : $class, ltrim($method, '@:'));
     }
 
     private function expand($param, array $share = null, bool $createFromString = false)
@@ -326,7 +354,7 @@ class Di
 
         if ($rule['shared']) {
             $closure = function(array $args = null, array $share = null) use ($closure, $rule) {
-                $this->inject($instance = $closure($args, $share), $rule);
+                $this->set($instance = $closure($args, $share), $rule);
 
                 return $instance;
             };
@@ -369,7 +397,7 @@ class Di
                     //Otherwise, create the class without calling the constructor
                     $class->newInstanceWithoutConstructor();
 
-                $this->inject($instance, $rule);
+                $this->set($instance, $rule);
 
                 // Now call this constructor after constructing all the dependencies. This avoids problems with cyclic references.
                 if ($constructor && !$class->isInternal()) {
@@ -409,7 +437,7 @@ class Di
 
                 if ($chain) {
                     if ($rule['shared']) {
-                        $this->inject($return, $rule);
+                        $this->set($return, $rule);
                     }
 
                     if (is_object($return)) {

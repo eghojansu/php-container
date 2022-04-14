@@ -24,7 +24,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testCallExpression()
     {
         // updating option
-        $this->di->addRule('my_obj', array('shared' => true));
+        $this->di->setRule('my_obj', array('shared' => true));
 
         $expr1 = $this->di->callExpression('Box:foo');
         $expr2 = $this->di->callExpression('Box::foo');
@@ -35,9 +35,12 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertSame(array('Box', 'foo'), $expr2);
         $this->assertSame(array($this->di->make('my_obj'), 'foo'), $expr3);
         $this->assertSame(array($this->di->make('my_obj'), 'foo'), $expr4);
+    }
 
-        $this->expectException('LogicException');
-        $this->expectExceptionMessage('Invalid call expression: foo');
+    public function testCallExpressionException()
+    {
+        $this->expectException('ReflectionException');
+        $this->expectExceptionMessageMatches('/^Class "foo" does not exist$/');
 
         $this->di->callExpression('foo');
     }
@@ -49,6 +52,14 @@ class DiTest extends \Codeception\Test\Unit
 
         $this->assertSame($date, $this->di->call('datetime@format', $format));
         $this->assertSame($date, $this->di->callArguments('datetime@format', array($format)));
+    }
+
+    public function testCallException()
+    {
+        $this->expectException('BadMethodCallException');
+        $this->expectExceptionMessageMatches('/^Call to undefined method stdClass::foo$/');
+
+        $this->di->callArguments('stdClass@foo');
     }
 
     public function testCallNamedArguments()
@@ -74,15 +85,17 @@ class DiTest extends \Codeception\Test\Unit
         $box = $this->di->make('my_obj');
         $box2 = $this->di->make('my_obj');
 
+        $this->assertFalse($this->di->getDefaults()['shared']);
         $this->assertInstanceOf('stdClass', $box);
         $this->assertNotSame($box2, $box);
 
         // enable shared
-        $this->di->defaults(array('shared' => true));
-        $this->di->addRule('datetime');
+        $this->di->setDefaults(array('shared' => true));
+        $this->di->setRule('datetime');
 
         $date = $this->di->make('datetime');
 
+        $this->assertTrue($this->di->getDefaults()['shared']);
         $this->assertInstanceOf('DateTime', $date);
         $this->assertSame($date, $this->di->make('DateTime'));
     }
@@ -171,7 +184,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testCyclicReferences()
     {
-        $this->di->addRule('CyclicB', array('shared' => true));
+        $this->di->setRule('CyclicB', array('shared' => true));
 
 		$a = $this->di->make('CyclicA');
 
@@ -194,7 +207,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testInterfaceRule()
     {
-        $this->di->addRule('DateTimeInterface', array('shared' => true));
+        $this->di->setRule('DateTimeInterface', array('shared' => true));
 
 		$one = $this->di->make('DateTime');
 		$two = $this->di->make('DateTime');
@@ -204,12 +217,12 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testChain()
     {
-        $this->di->addRule('today', array(
+        $this->di->setRule('today', array(
             'shared' => true,
             'class' => 'DateTime',
             'calls' => array('@format', 'Y-m-d'),
         ));
-        $this->di->addRule('call', array(
+        $this->di->setRule('call', array(
             'class' => 'CallA',
             'calls' => array(
                 array('@getF'),
@@ -226,7 +239,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testNullSubstitution()
     {
-        $this->di->addRule('MethodWithDefaultNull', array(
+        $this->di->setRule('MethodWithDefaultNull', array(
             'substitutions' => array('B' => null),
         ));
 
@@ -238,7 +251,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testSubstitutionText()
     {
-        $this->di->addRule('A', array(
+        $this->di->setRule('A', array(
             'substitutions' => array('B' => 'BExtended'),
         ));
 
@@ -250,7 +263,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testSubstitutionTextMixedCase()
     {
-        $this->di->addRule('A', array(
+        $this->di->setRule('A', array(
             'substitutions' => array('B' => 'bexTenDed'),
         ));
 
@@ -262,7 +275,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testSubstitutionCallback()
     {
-        $this->di->addRule('A', array(
+        $this->di->setRule('A', array(
             'substitutions' => array('B' => static fn(Di $di) => $di->make('BExtended')),
         ));
 
@@ -274,7 +287,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testSubstitutionObject()
     {
-        $this->di->addRule('A', array(
+        $this->di->setRule('A', array(
             'substitutions' => array('B' => $this->di->make('BExtended')),
         ));
 
@@ -286,15 +299,15 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testGetSelf()
     {
-        $this->di->addRule('my_di', array(
+        $this->di->setRule('my_di', array(
             'params' => array(Di::class),
             'class' => DependsDi::class,
         ));
-        $this->di->addRule('my_second_di', array(
+        $this->di->setRule('my_second_di', array(
             'params' => array('di'),
             'class' => DependsDi::class,
         ));
-        $this->di->addRule('my_third_di', array(
+        $this->di->setRule('my_third_di', array(
             'params' => array('Ekok\\Container\\dI'),
             'class' => DependsDi::class,
         ));
@@ -307,7 +320,7 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testRuleAlias()
     {
-        $this->di->addRule('foo', array(
+        $this->di->setRule('foo', array(
             'class' => 'MethodWithDefaultNull',
             'alias' => true,
             'shared' => true,
@@ -324,9 +337,9 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testTagged()
     {
-        $this->di->defaults(array('shared' => true));
-        $this->di->addRule('foo', array('tags' => 'tag', 'class' => 'stdClass'));
-        $this->di->addRule('bar', array('tags' => 'tag', 'class' => 'DateTime'));
+        $this->di->setDefaults(array('shared' => true));
+        $this->di->setRule('foo', array('tags' => 'tag', 'class' => 'stdClass'));
+        $this->di->setRule('bar', array('tags' => 'tag', 'class' => 'DateTime'));
 
         $foo = $this->di->make('foo');
         $bar = $this->di->make('bar');
@@ -337,9 +350,9 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testSelfAlias()
     {
-        $this->di->setAlias('foo');
+        $this->di->setSelfAlias('foo');
 
-        $this->assertSame('foo', $this->di->getAlias());
+        $this->assertSame('foo', $this->di->getSelfAlias());
         $this->assertSame($this->di, $this->di->make('foo'));
     }
 
@@ -356,7 +369,7 @@ class DiTest extends \Codeception\Test\Unit
     public function testParamResolvingException()
     {
         $this->expectException('TypeError');
-        $this->expectExceptionMessageMatches('/Argument #2 \(\$no\) must be of type int, string given, called in .+ on line 256$/');
+        $this->expectExceptionMessageMatches('/Argument #2 \(\$no\) must be of type int, string given, called in .+ on line 247$/');
 
         $this->di->call(function (string $foo, int $no) {
             return $foo . ':' . $no;
@@ -375,13 +388,15 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testAddAlias()
     {
-        $this->di->inject(new stdClass(), array('alias' => 'std'));
+        $this->di->set(new stdClass(), array('alias' => 'std'));
 
         $this->assertInstanceOf('stdClass', $this->di->make('stdClass'));
         $this->assertSame($this->di->make('stdClass'), $this->di->make('std'));
         $this->assertInstanceOf('DateTime', $this->di->make('DateTime'));
-        $this->assertSame($this->di->make('std'), $this->di->addAlias('DateTime', 'std')->make('DateTime'));
-        $this->assertSame($this->di->make('std'), $this->di->addAlias('foo', 'std')->make('foo'));
+        $this->assertSame($this->di->make('std'), $this->di->setAlias('DateTime', 'std')->make('DateTime'));
+        $this->assertSame('stdclass', $this->di->getAlias('DateTime'));
+        $this->assertSame($this->di->make('std'), $this->di->setAlias('foo', 'std')->make('foo'));
+        $this->assertSame('stdclass', $this->di->getAlias('foo'));
     }
 
     public function testContainerAware()
@@ -393,8 +408,8 @@ class DiTest extends \Codeception\Test\Unit
 
     public function testFactory()
     {
-        $this->di->addRule('std', 'StdFactory::create');
-        $this->di->addRule('date', 'DateFactory@__invoke');
+        $this->di->setRule('std', 'StdFactory::create');
+        $this->di->setRule('date', 'DateFactory@__invoke');
 
         $std = $this->di->make('std');
         $std2 = $this->di->make('std');
@@ -409,5 +424,13 @@ class DiTest extends \Codeception\Test\Unit
         $this->assertInstanceOf('DateTime', $date);
         $this->assertInstanceOf('DateTime', $date2);
         $this->assertNotSame($date, $date2);
+    }
+
+    public function testGet()
+    {
+        $this->di->setDefaults(array('shared' => true));
+
+        $this->assertInstanceOf('stdClass', $std = $this->di->make('stdClass'));
+        $this->assertSame($std, $this->di->get('stdClass'));
     }
 }
